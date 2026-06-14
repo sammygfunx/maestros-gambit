@@ -31,10 +31,10 @@
   const other = (c) => (c === 'w' ? 'b' : 'w');
 
   const Net = {
-    // Paste your deployed relay here (e.g. 'wss://your-relay.onrender.com/')
-    // to give players one-click Host/Join with nothing to type. Empty means
-    // the lobby's Server field must be filled in instead.
-    DEFAULT_RELAY_URL: '',
+    // The bundled relay: gives players one-click Host/Join with nothing to type.
+    // A player can still override it via the lobby's (collapsed) Server settings;
+    // set this back to '' to force the Server field to be filled in instead.
+    DEFAULT_RELAY_URL: 'wss://maestros-gambit.onrender.com',
 
     ws: null,
     handlers: {},

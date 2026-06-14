@@ -186,6 +186,44 @@ html, body {
 }
 .online-status.busy { color: var(--gold-bright); }
 .online-status.warn { color: var(--accent); }
+/* ---- "connecting" panel: animated label + progress + did-you-know fact ---- */
+.conn-panel {
+  width: min(640px, 92vw);
+  margin: 0 auto 18px;
+  display: flex; flex-direction: column; gap: 12px;
+  background: rgba(20,10,26,.85);
+  border: 1px solid var(--gold-dim); border-radius: 12px;
+  padding: 16px 20px 18px;
+  animation: floatIn .35s ease-out;
+}
+.conn-head {
+  font-size: 20px; letter-spacing: 2px; color: var(--gold-bright);
+  text-align: center;
+}
+.conn-dots { display: inline-block; width: 1.4em; text-align: left; }
+.conn-bar {
+  height: 8px; width: 100%;
+  background: #160b1d; border: 1px solid #3a2342; border-radius: 6px;
+  overflow: hidden;
+}
+.conn-fill {
+  height: 100%; width: 0%;
+  background: linear-gradient(90deg, var(--gold-dim), var(--gold-bright));
+  box-shadow: 0 0 12px rgba(232,181,74,.45);
+  border-radius: 6px;
+  transition: width .12s linear;
+}
+/* once connected, the bar holds full and gently breathes while we wait */
+.conn-panel.waiting .conn-fill { animation: connPulse 1.6s ease-in-out infinite; }
+@keyframes connPulse { 0%,100% { opacity: 1; } 50% { opacity: .55; } }
+.conn-fact { text-align: center; }
+.conn-fact-label { font-size: 13px; letter-spacing: 2px; color: var(--gold-dim); text-transform: uppercase; }
+.conn-fact-text {
+  margin-top: 5px; min-height: 3em;
+  font-size: 15px; font-style: italic; line-height: 1.5; color: var(--parchment);
+  transition: opacity .22s ease;
+}
+
 .online-grid {
   display: flex; align-items: stretch; justify-content: center;
   gap: 18px; flex-wrap: wrap;
@@ -311,6 +349,56 @@ html, body {
 .hud-buttons { display: flex; flex-wrap: wrap; gap: 6px; }
 .hud-buttons .btn { flex: 1 1 44%; }
 
+/* ---------- chess clocks (DOM seven-segment, stays crisp on hi-DPI) ---------- */
+.mg-clock {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  background: rgba(8,4,12,.9);
+  border: 1px solid #3a2342; border-radius: 8px;
+  padding: 5px 10px;
+  /* per-team LED colour, set on .ivory / .obsidian below */
+  --led: var(--gold-bright);
+}
+.mg-clock.ivory    { --led: #ffe096; }   /* Ivory accent (warm gold sheen) */
+.mg-clock.obsidian { --led: #beaaff; }   /* Obsidian accent (violet sheen) */
+.mg-clock.active { border-color: var(--led); box-shadow: 0 0 12px -2px var(--led); }
+.clk-name {
+  font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
+  color: var(--led); opacity: .85; white-space: nowrap;
+}
+.mg-clock.flag .seg7-display { animation: clkFlash .6s steps(1) infinite; }
+@keyframes clkFlash { 50% { opacity: .25; } }
+
+.seg7-display { display: inline-flex; align-items: center; gap: 3px; height: 26px; }
+.seg7 {
+  --w: 15px; --h: 26px; --t: 3px;       /* digit width / height / segment thickness */
+  position: relative; width: var(--w); height: var(--h); display: inline-block;
+}
+.seg7 .s {
+  position: absolute; background: var(--led);
+  opacity: .08;                          /* unlit "ghost" segments */
+}
+.seg7 .s.on { opacity: 1; filter: drop-shadow(0 0 2px var(--led)); }
+/* horizontal segments a/d/g (hexagon ends) */
+.seg7 .s-a, .seg7 .s-d, .seg7 .s-g {
+  left: var(--t); width: calc(var(--w) - 2 * var(--t)); height: var(--t);
+  clip-path: polygon(0 50%, 12% 0, 88% 0, 100% 50%, 88% 100%, 12% 100%);
+}
+.seg7 .s-a { top: 0; }
+.seg7 .s-g { top: calc((var(--h) - var(--t)) / 2); }
+.seg7 .s-d { top: calc(var(--h) - var(--t)); }
+/* vertical segments b/c/e/f */
+.seg7 .s-b, .seg7 .s-c, .seg7 .s-e, .seg7 .s-f {
+  width: var(--t); height: calc((var(--h) - 3 * var(--t)) / 2);
+  clip-path: polygon(50% 0, 100% 12%, 100% 88%, 50% 100%, 0 88%, 0 12%);
+}
+.seg7 .s-f { top: var(--t); left: 0; }
+.seg7 .s-b { top: var(--t); left: calc(var(--w) - var(--t)); }
+.seg7 .s-e { top: calc(var(--h) / 2); left: 0; }
+.seg7 .s-c { top: calc(var(--h) / 2); left: calc(var(--w) - var(--t)); }
+/* colon between minutes and seconds */
+.seg7-colon { display: inline-flex; flex-direction: column; justify-content: center; gap: 6px; height: var(--h, 26px); padding: 0 1px; }
+.seg7-colon i { width: 3px; height: 3px; border-radius: 50%; background: var(--led); filter: drop-shadow(0 0 2px var(--led)); }
+
 #thinking {
   position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);
   background: rgba(18,9,24,.88);
@@ -420,6 +508,10 @@ html, body {
     background: linear-gradient(0deg, rgba(10,5,14,.96), rgba(10,5,14,.55));
     border-top: 1px solid #3a2342;
   }
+  /* clocks share the top row of the dock; trays/list/buttons follow */
+  .mg-clock { order: -1; flex: 1 1 46%; padding: 4px 8px; }
+  .mg-clock .seg7-display { height: 22px; }
+  .mg-clock .seg7 { --w: 13px; --h: 22px; --t: 2.5px; }
   .cap-row { flex: 1 1 46%; min-height: 30px; max-height: 36px; overflow: auto; }
   #move-list { flex: 1 1 100%; order: 3; max-height: 38px; padding: 4px 8px; font-size: 12px; }
   .hud-buttons { flex: 1 1 100%; order: 4; gap: 5px; flex-wrap: wrap; }
@@ -445,6 +537,10 @@ html, body {
   #hud-turn-banner { font-size: 14px; }
   #hud-side { top: 46px; right: 6px; bottom: 6px; width: 150px; gap: 5px;
     right: max(6px, env(safe-area-inset-right)); }
+  .mg-clock { padding: 3px 7px; }
+  .mg-clock .clk-name { font-size: 9px; letter-spacing: 1px; }
+  .mg-clock .seg7-display { height: 20px; }
+  .mg-clock .seg7 { --w: 12px; --h: 20px; --t: 2.5px; }
   .cap-row { min-height: 30px; }
   .cap-row canvas { width: 22px; height: 28px; }
   #move-list { font-size: 11px; line-height: 1.5; padding: 5px 7px; }

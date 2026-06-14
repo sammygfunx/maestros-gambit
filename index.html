@@ -119,6 +119,13 @@
           <button class="seg-btn" data-v="2.4">Presto</button>
         </div>
       </div>
+      <div class="opt-row">
+        <label>Chess Clock</label>
+        <div class="seg seg-small" id="seg-clock">
+          <button class="seg-btn sel" data-v="countdown">Count Down <small>time limit</small></button>
+          <button class="seg-btn" data-v="countup">Count Up <small>total time</small></button>
+        </div>
+      </div>
       <p class="hint-text">Tip: a bundled synth soundtrack loops during games — pick a track above.
       Load your own audio file to override it, or Clear to return to the bundled set.<br>
       During a battle scene, click or press Esc to skip ahead.</p>
@@ -176,6 +183,19 @@
       <h2 class="screen-title">Online Duel</h2>
       <p class="online-status" id="online-status">Host a match and share the code, or join with a code your opponent sent.</p>
 
+      <!-- shown only while the relay/opponent is being reached: animated label,
+           a predictable progress bar, and a rotating orchestral "did you know?" -->
+      <div id="online-connecting" class="conn-panel hidden">
+        <div class="conn-head">
+          <span class="conn-label" id="conn-label">Connecting</span><span class="conn-dots" id="conn-dots" aria-hidden="true"></span>
+        </div>
+        <div class="conn-bar"><div class="conn-fill" id="conn-fill"></div></div>
+        <div class="conn-fact">
+          <div class="conn-fact-label">♪ Did you know?</div>
+          <p class="conn-fact-text" id="conn-fact-text"></p>
+        </div>
+      </div>
+
       <div class="online-grid">
         <div class="online-card">
           <div class="oc-title">Host a Match</div>
@@ -224,13 +244,16 @@
         <div class="hud-name" id="hud-white-name">Ivory</div>
       </div>
       <div id="hud-side">
+        <div class="mg-clock obsidian" id="clock-b"><span class="clk-name">Obsidian</span><span class="seg7-display" id="clock-b-seg"></span></div>
         <div class="cap-row" id="cap-black"></div>
         <div id="move-list"></div>
         <div class="cap-row" id="cap-white"></div>
+        <div class="mg-clock ivory" id="clock-w"><span class="clk-name">Ivory</span><span class="seg7-display" id="clock-w-seg"></span></div>
         <div class="hud-buttons">
           <button class="btn btn-small" id="btn-undo" title="Take back a move">Undo</button>
           <button class="btn btn-small" id="btn-toggle-battles" title="Toggle battle scenes">Battles: On</button>
           <button class="btn btn-small" id="btn-view" title="Cycle camera view">View: Ivory</button>
+          <button class="btn btn-small" id="btn-clock" title="Show or hide the chess clocks">Clock: On</button>
           <button class="btn btn-small" id="btn-resign">Resign</button>
           <button class="btn btn-small" id="btn-quit">Menu</button>
         </div>
@@ -280,6 +303,7 @@
   </div>
 
 <script src="js/audio.js"></script>
+<script src="js/facts.js"></script>
 <script src="js/sprites.js"></script>
 <script src="js/chess.js"></script>
 <script src="js/ai.js"></script>

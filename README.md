@@ -48,6 +48,11 @@ is generated procedurally at runtime.
   Obsidian's corner (180°), and "across the table" — a straight-on, slightly
   elevated perspective with foreshortened rows.
 - Promotion ceremony, captured-musician trays, algebraic move list, undo, resign.
+- **Chess clocks** — per-player LED seven-segment timers (Ivory in gold, Obsidian
+  in violet) that only run for the side to move and freeze during battle scenes.
+  Two modes in Options: *Count Down* (a 10-minute time control — it flashes at
+  0:00, no flag-fall) or *Count Up* (tracks each player's total thinking time).
+  A HUD **Clock** button shows or hides them; the choice persists.
 - All sound effects synthesized live with WebAudio (pizzicato, timpani, cymbals,
   reed squeaks, FM piano, applause…).
 - **Bundled original soundtrack** — three looping synth-chamber tracks (*Overture
@@ -62,12 +67,15 @@ is generated procedurally at runtime.
 
 ## Play online
 Choose **Online Duel** on the setup screen, then either **Host a Match** (you get a
-5-letter room code to send to a friend) or **Join** with a code they sent you. The
-game begins the instant your opponent connects — no accounts, no installs. Both
-browsers run the same chess engine; a tiny relay server only passes moves between
-the two players. Battle scenes stay a personal preference, so each player can toggle
-them independently. Undo is disabled online (no free takebacks); Resign and Encore
-(rematch) work as expected, and a disconnect ends the match cleanly.
+5-letter room code to send to a friend) or **Join** with a code they sent you. A
+relay URL is built in, so there's nothing to type — just click. The game begins the
+instant your opponent connects — no accounts, no installs. Both browsers run the
+same chess engine; a tiny relay server only passes moves between the two players.
+While you wait for the relay (a free host can take a moment to wake) the lobby shows
+an animated progress bar and a rotating "did you know?" orchestral fact. Battle
+scenes stay a personal preference, so each player can toggle them independently.
+Undo is disabled online (no free takebacks); Resign and Encore (rematch) work as
+expected, and a disconnect ends the match cleanly.
 
 You need one small relay running for players to find each other. It is free to host:
 
@@ -95,6 +103,7 @@ Node process; the game itself stays dependency-free.
 index.html        page shell + all DOM screens
 css/style.css     menus/HUD styling
 js/audio.js       WebAudio synth engine: SFX, stingers & bundled soundtrack
+js/facts.js       100 "did you know?" orchestral facts for the connecting screen
 js/chess.js       rules engine (no rendering; unit-tested)
 js/ai.js          negamax + quiescence AI, 3 difficulty levels
 js/sprites.js     procedural pixel-art characters, rigs & poses

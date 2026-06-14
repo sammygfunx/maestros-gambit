@@ -11,7 +11,8 @@
 
   const UI = {
     handlers: {},
-    settings: { sfx: 0.8, music: 0.6, speed: 1, view: 'iso', musicOn: true, track: 0, relayUrl: '' },
+    settings: { sfx: 0.8, music: 0.6, speed: 1, view: 'iso', musicOn: true, track: 0, relayUrl: '',
+      clockMode: 'countdown', clockShown: true },
     setup: { mode: 'cpu', diff: 1, side: 'w', battles: 'on' },
 
     init(handlers) {
@@ -43,6 +44,7 @@
       this.segInit('seg-side', (v) => { this.setup.side = v; this.savePrefs(); }, this.setup.side);
       this.segInit('seg-battles', (v) => { this.setup.battles = v; this.savePrefs(); }, this.setup.battles);
       this.segInit('seg-speed', (v) => { this.settings.speed = +v; this.savePrefs(); }, String(this.settings.speed));
+      this.segInit('seg-clock', (v) => { this.settings.clockMode = v; this.savePrefs(); handlers.setClockMode(v); }, this.settings.clockMode);
 
       /* ---- options ---- */
       const sfx = $('opt-sfx'), mus = $('opt-music');
@@ -100,6 +102,7 @@
       nav('btn-quit', () => handlers.quitToMenu());
       nav('btn-toggle-battles', () => handlers.toggleBattles());
       nav('btn-view', () => handlers.cycleView());
+      nav('btn-clock', () => handlers.toggleClock());
       nav('btn-go-menu', () => handlers.quitToMenu());
       nav('btn-go-rematch', () => handlers.rematch());
 
@@ -136,11 +139,16 @@
         this.settings.relayUrl = $('relay-url').value.trim();
         this.savePrefs();
       });
-      nav('btn-host', () => { this.lobbyBusy('Creating a room…'); handlers.hostMatch(this.setup.side); });
+      nav('btn-host', () => {
+        this.lobbyBusy('Creating a room…');
+        this.online.connect.start('Connecting');
+        handlers.hostMatch(this.setup.side);
+      });
       const doJoin = () => {
         const code = $('join-code').value.toUpperCase().replace(/[^A-Z]/g, '');
         if (code.length !== 5) { this.online.setStatus('Enter the 5-letter room code to join.', 'warn'); return; }
         this.lobbyBusy('Joining room ' + code + '…');
+        this.online.connect.start('Joining the room');
         handlers.joinMatch(code);
       };
       nav('btn-join', doJoin);
@@ -155,7 +163,7 @@
           () => this.online.setStatus('Code copied — send it to your opponent.', ''),
           () => {});
       });
-      nav('btn-online-back', () => { handlers.leaveLobby(); this.show('screen-setup'); });
+      nav('btn-online-back', () => { this.online.connect.stop(); handlers.leaveLobby(); this.show('screen-setup'); });
 
       // first interaction unlocks WebAudio
       const unlock = () => { MG.Audio.resume(); };
@@ -187,6 +195,7 @@
     /* ---- online lobby helpers ---- */
     openLobby() {
       this.show('screen-online');
+      this.online.connect.stop();
       $('room-code-box').classList.add('hidden');
       $('btn-host').disabled = false;
       $('join-code').disabled = false;
@@ -214,6 +223,65 @@
         $('btn-host').disabled = false;
         $('join-code').disabled = false;
         $('btn-join').disabled = false;
+      },
+
+      /* The "connecting" flourish: an animated label, a predictable progress
+         bar, and a rotating orchestral fact to entertain the wait (Render's
+         free tier can cold-start). Cosmetic only — no bearing on the relay. */
+      connect: {
+        shown: false,
+        _tick: 0, _p: 0, _start: 0, _connected: false,
+        _progTimer: null, _factTimer: null, _lastFact: -1,
+
+        start(label) {
+          const panel = $('online-connecting');
+          this._connected = false;
+          panel.classList.remove('waiting');
+          $('conn-fill').style.width = '0%';
+          if (label) this.setLabel(label);
+          if (this.shown) return;              // idempotent: already running
+          this.shown = true;
+          this._tick = 0; this._p = 0; this._start = performance.now();
+          panel.classList.remove('hidden');
+          this.nextFact();
+          this._progTimer = setInterval(() => this._step(), 90);
+          this._factTimer = setInterval(() => this.nextFact(), 7000);
+        },
+        setLabel(text) { $('conn-label').textContent = text || 'Connecting'; },
+        // socket is up; hold the bar full and switch to a gentle waiting pulse
+        connected(label) {
+          this._connected = true;
+          $('online-connecting').classList.add('waiting');
+          if (label) this.setLabel(label);
+        },
+        _step() {
+          this._tick++;
+          // animated ellipsis so the player can see it is still working
+          $('conn-dots').textContent = '.'.repeat(this._tick % 4);
+          const t = (performance.now() - this._start) / 1000;
+          // predictable, monotonic ease toward a cap; snaps to full once connected
+          const target = this._connected ? 1 : 0.92 * (1 - Math.exp(-t / 16));
+          this._p += (target - this._p) * 0.16;
+          $('conn-fill').style.width = (this._p * 100).toFixed(1) + '%';
+        },
+        nextFact() {
+          const facts = MG.ORCH_FACTS || [];
+          if (!facts.length) return;
+          let i = Math.floor(Math.random() * facts.length);
+          if (facts.length > 1 && i === this._lastFact) i = (i + 1) % facts.length;
+          this._lastFact = i;
+          const el = $('conn-fact-text');
+          el.style.opacity = '0';
+          setTimeout(() => { el.textContent = facts[i]; el.style.opacity = '1'; }, 200);
+        },
+        stop() {
+          if (this._progTimer) { clearInterval(this._progTimer); this._progTimer = null; }
+          if (this._factTimer) { clearInterval(this._factTimer); this._factTimer = null; }
+          this.shown = false;
+          const panel = $('online-connecting');
+          panel.classList.add('hidden');
+          panel.classList.remove('waiting');
+        },
       },
     },
 
@@ -267,6 +335,29 @@
     setViewBtn(v) {
       const names = { iso: 'Ivory', rot: 'Obsidian', table: 'Table' };
       $('btn-view').textContent = `View: ${names[v] || 'Ivory'}`;
+    },
+
+    setClockBtn(on) { $('btn-clock').textContent = `Clock: ${on ? 'On' : 'Off'}`; },
+
+    /* render an "M:SS" string as DOM seven-segment digits (sharp at any DPI) */
+    SEG7: {
+      '0': 'abcdef', '1': 'bc', '2': 'abdeg', '3': 'abcdg', '4': 'bcfg',
+      '5': 'acdfg', '6': 'acdefg', '7': 'abc', '8': 'abcdefg', '9': 'abcdfg',
+    },
+    renderSevenSeg(el, str) {
+      let html = '';
+      for (const ch of String(str)) {
+        if (ch === ':') { html += '<span class="seg7-colon"><i></i><i></i></span>'; continue; }
+        const on = this.SEG7[ch] || '';
+        html += '<span class="seg7">' +
+          'abcdefg'.split('').map((s) => `<i class="s s-${s}${on.includes(s) ? ' on' : ''}"></i>`).join('') +
+          '</span>';
+      }
+      el.innerHTML = html;
+    },
+    setClock(color, str, flag) {
+      this.renderSevenSeg($(color === 'w' ? 'clock-w-seg' : 'clock-b-seg'), str);
+      $(color === 'w' ? 'clock-w' : 'clock-b').classList.toggle('flag', !!flag);
     },
 
     askConfirm(title, sub, yesLabel = 'Yes', noLabel = 'No') {

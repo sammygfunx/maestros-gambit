@@ -9,6 +9,10 @@
   const canvas = document.getElementById('game-canvas');
   const ctx = canvas.getContext('2d');
 
+  // Default time control for the chess clocks (countdown mode): 10 minutes per
+  // player. Change this one constant to adjust the default game length.
+  const CLOCK_SECONDS = 10 * 60;
+
   const App = {
     state: 'menu',          // menu | board | battle
     game: null,
@@ -20,6 +24,9 @@
     remoteQueue: [],        // online: opponent moves awaiting a free moment
     capturedByWhite: [],
     capturedByBlack: [],
+    clock: null,            // {w, b, mode} seconds: remaining (countdown) or elapsed (countup)
+    _clockStr: { w: '', b: '' },
+    _clockActive: undefined,
     titleT: 0,
     titleFx: null,
 
@@ -44,6 +51,8 @@
           MG.UI.setBattleBtn(this.session.battles);
         },
         cycleView: () => this.cycleView(),
+        toggleClock: () => this.toggleClock(),
+        setClockMode: (v) => this.setClockMode(v),
         hostMatch: (side) => this.hostMatch(side),
         joinMatch: (code) => this.joinMatch(code),
         leaveLobby: () => this.leaveLobby(),
@@ -53,13 +62,21 @@
 
       // online relay callbacks (see js/net.js)
       MG.Net.configure({
-        onStatus: (state, message) => MG.UI.online.setStatus(message,
-          state === 'error' ? 'warn' : (state === 'connecting' || state === 'joining') ? 'busy' : ''),
+        onStatus: (state, message) => {
+          const c = MG.UI.online.connect;
+          MG.UI.online.setStatus(message, state === 'error' ? 'warn'
+            : (state === 'connecting' || state === 'joining' || state === 'waiting') ? 'busy' : '');
+          if (state === 'connecting') c.setLabel('Connecting');
+          else if (state === 'joining') c.setLabel('Joining the room');
+          else if (state === 'waiting') c.connected('Waiting for the host to begin');
+          else if (state === 'error' || state === 'left') c.stop();
+        },
         onRoomCreated: (code) => {
           MG.UI.online.showCode(code);
           MG.UI.online.setStatus('Room ' + code + ' is open — share it. Waiting for your opponent…', 'busy');
+          MG.UI.online.connect.connected('Waiting for your opponent');
         },
-        onStartMatch: (myColor) => this.startOnlineGame(myColor),
+        onStartMatch: (myColor) => { MG.UI.online.connect.stop(); this.startOnlineGame(myColor); },
         onMove: (p) => this.applyRemoteMove(p),
         onControl: (p) => this.onRemoteControl(p),
         onPeerLeft: (reason, message) => this.onPeerLeft(reason, message),
@@ -220,6 +237,74 @@
       MG.UI.setViewBtn(next);
     },
 
+    /* ============== chess clocks ============== */
+    // Standard chess-clock behaviour: only the side to move counts. In
+    // 'countdown' mode each side starts at CLOCK_SECONDS and ticks toward 0
+    // (freezes/flashes at 0:00 — no flag-fall at this scope). In 'countup'
+    // mode each side starts at 0 and accumulates its total thinking time.
+    // Online clocks run independently on each client (cosmetic/honour system).
+    resetClock() {
+      const mode = MG.UI.settings.clockMode === 'countup' ? 'countup' : 'countdown';
+      const base = mode === 'countdown' ? CLOCK_SECONDS : 0;
+      this.clock = { w: base, b: base, mode };
+      this._clockStr = { w: '', b: '' };
+      this._clockActive = undefined;
+      this.applyClockVisibility();
+      this.renderClock('w', true);
+      this.renderClock('b', true);
+    },
+    applyClockVisibility() {
+      const show = !!MG.UI.settings.clockShown;
+      document.getElementById('clock-w').classList.toggle('hidden', !show);
+      document.getElementById('clock-b').classList.toggle('hidden', !show);
+    },
+    toggleClock() {
+      MG.UI.settings.clockShown = !MG.UI.settings.clockShown;
+      MG.UI.savePrefs();
+      this.applyClockVisibility();
+      MG.UI.setClockBtn(MG.UI.settings.clockShown);
+    },
+    setClockMode(v) {
+      MG.UI.settings.clockMode = v === 'countup' ? 'countup' : 'countdown';
+      if (!this.clock) return;
+      this.clock.mode = MG.UI.settings.clockMode;
+      const base = this.clock.mode === 'countdown' ? CLOCK_SECONDS : 0;
+      this.clock.w = base; this.clock.b = base;
+      this.renderClock('w', true);
+      this.renderClock('b', true);
+    },
+    fmtClock(secs) {
+      secs = Math.max(0, Math.floor(secs));
+      const m = Math.floor(secs / 60), s = secs % 60;
+      return m + ':' + (s < 10 ? '0' + s : s);
+    },
+    renderClock(color, force) {
+      if (!this.clock) return;
+      const str = this.fmtClock(this.clock[color]);
+      if (!force && this._clockStr[color] === str) return;
+      this._clockStr[color] = str;
+      const flag = this.clock.mode === 'countdown' && this.clock[color] <= 0;
+      MG.UI.setClock(color, str, flag);
+    },
+    // advance the active side's clock; frozen during animations/battle/game-over
+    updateClock(dt) {
+      if (!this.clock) return;
+      const ticking = this.session && !this.over && this.state === 'board' && !this.busy;
+      const active = ticking ? this.game.turn : null;
+      if (active !== this._clockActive) {
+        this._clockActive = active;
+        document.getElementById('clock-w').classList.toggle('active', active === 'w');
+        document.getElementById('clock-b').classList.toggle('active', active === 'b');
+      }
+      if (!ticking) return;
+      const c = this.clock, turn = this.game.turn;
+      if (c.mode === 'countdown') {
+        if (c[turn] > 0) { c[turn] = Math.max(0, c[turn] - dt); this.renderClock(turn); }
+      } else {
+        c[turn] += dt; this.renderClock(turn);
+      }
+    },
+
     /* ============== session lifecycle ============== */
     startGame(setup) {
       const session = {
@@ -260,6 +345,8 @@
       MG.UI.setBattleBtn(session.battles);
       this.board.setView(MG.UI.settings.view || 'iso');
       MG.UI.setViewBtn(this.board.view);
+      this.resetClock();
+      MG.UI.setClockBtn(MG.UI.settings.clockShown);
       MG.UI.updateMoveList([]);
       MG.UI.updateCaptured([], []);
       MG.UI.setTurn('w', false);
@@ -393,6 +480,7 @@
     onPeerLeft(reason, message) {
       if (!this.session || this.session.mode !== 'online') {
         // still in the lobby — surface it there and let the player retry
+        MG.UI.online.connect.stop();
         MG.UI.online.reenable();
         MG.UI.online.setStatus(message || 'Your opponent left.', 'warn');
         return;
@@ -410,6 +498,7 @@
     onNetError(code, message) {
       // Errors that matter to the player happen in the lobby (bad code, room full…).
       if (!this.session || this.session.mode !== 'online' || this.over) {
+        MG.UI.online.connect.stop();
         MG.UI.online.reenable();
         MG.UI.online.setStatus(message || ('Relay error: ' + code), 'warn');
       } else {
@@ -744,6 +833,7 @@
         this.battle.update(dt);
         this.battle.draw();
       } else { // board
+        this.updateClock(dt);
         this.board.update(dt);
         this.board.draw(this.game);
       }

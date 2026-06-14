@@ -1,6 +1,9 @@
 MAESTRO'S GAMBIT — PROJECT STATE
-Last updated: 2026-06-14 (v1.5 — online play: room-code WebSocket relay,
-Online Duel mode + lobby, move/resign/rematch/disconnect sync)
+Last updated: 2026-06-14 (v1.6 — bundled relay URL + "connecting" flourish
+(animated label, predictable progress bar, 100 rotating orchestral facts);
+per-player seven-segment chess clocks (countdown + count-up))
+Prior: v1.5 — online play: room-code WebSocket relay, Online Duel mode + lobby,
+move/resign/rematch/disconnect sync
 Prior: v1.4 — mobile/responsive support: hi-DPI canvas, responsive HUD,
 fluid battle banner, touch hygiene
 Prior: v1.3 — bundled original synth soundtrack, per-character stingers,
@@ -9,6 +12,56 @@ Prior: v1.2 — choreography variety, castling/en-passant/promotion/stalemate/
 draw set-piece scenes, elaborate checkmate finale
 Prior: v1.1 — battle-end fix, curtain hold, camera views, quit confirm,
 mid-battle resize
+
+V1.6 CHANGES — RELAY URL + CONNECTING FLOURISH + CHESS CLOCKS
+  (verified: chess 26/26; node --check all touched files; headless screenshots
+  of the board HUD with clocks, the seven-segment renderer, and the connecting
+  panel — all clean)
+  - BUNDLED RELAY URL (js/net.js): DEFAULT_RELAY_URL is now
+    'wss://maestros-gambit.onrender.com', so players click Host/Join with nothing
+    to type. The lobby's Server settings stay available (collapsed) for anyone who
+    wants to override it; set DEFAULT_RELAY_URL back to '' to force manual entry.
+    NOTE: this is the intended Render URL — deploy server/relay there (or edit the
+    constant) for it to actually answer.
+  - ORCHESTRAL FACTS (js/facts.js, NEW): MG.ORCH_FACTS — a pool of 100 concise,
+    accurate "did you know?" facts (instruments, repertoire, composers, terms).
+    Original phrasings; facts aren't copyrightable. Loaded before ui.js.
+  - "CONNECTING" PANEL (index.html #online-connecting, css .conn-*, ui.js
+    UI.online.connect): shown while the relay/opponent is being reached (Render's
+    free tier can cold-start). Three parts: (1) an animated label with a cycling
+    "…" ellipsis so you can see it's still working; (2) a PREDICTABLE progress
+    bar — a monotonic ease toward a ~92% cap via 0.92*(1-exp(-t/16)), eased into
+    each frame, that snaps to 100% on connect (never random/jumpy); (3) a rotating
+    orchestral fact (new one every 7s, fade transition). connect.start/connected/
+    stop drive it; wired from the lobby Host/Join handlers and the net lifecycle
+    callbacks in main.js (onStatus/onRoomCreated/onStartMatch/onPeerLeft/onError).
+    Cosmetic only — zero effect on the relay or game.
+  - CHESS CLOCKS (index.html #hud-side, css .mg-clock/.seg7*, ui.js, main.js):
+      * DISPLAY: DOM seven-segment numerals (M:SS), NOT canvas, so they stay sharp
+        on hi-DPI without touching the canvas pipeline. UI.renderSevenSeg(el,str)
+        builds <span.seg7> digits (7 <i> segments toggled via the SEG7 map) plus a
+        <span.seg7-colon>. Each segment is a clip-path hexagon; lit = team accent
+        + drop-shadow glow, unlit = 8% "ghost". Ivory LED #ffe096 (warm gold),
+        Obsidian LED #beaaff (violet) — pulled from the sprite TEAM glow colours.
+      * PLACEMENT: Obsidian clock above the capture trays, Ivory clock below them,
+        in #hud-side. Responsive: portrait dock puts both clocks on the dock's top
+        row; landscape thin panel shrinks them.
+      * BEHAVIOUR (main.js, App.clock = {w,b,mode}): only the side to move counts.
+        updateClock(dt) runs in the loop's board branch and ticks ONLY when
+        (session && !over && state==='board' && !busy) — so clocks freeze during
+        move animations, battle scenes, AI thinking, and game-over, and the swap
+        happens exactly when busy clears in afterMoveResolve (turn flipped, move
+        list updated). The running side's clock gets an 'active' glow.
+      * TWO MODES (Options → "Chess Clock"): 'countdown' (default) starts each side
+        at CLOCK_SECONDS (const in main.js = 10*60) and ticks to 0 — no flag-fall,
+        it freezes at 0:00 and the display flashes (.flag). 'countup' starts at 0
+        and accumulates each side's total thinking time. setClockMode resets values.
+      * TOGGLE: the HUD "Clock: On/Off" button (same row as View/Undo/Resign) shows/
+        hides both clocks; persisted with clockMode in mg_prefs (settings.clockShown
+        / settings.clockMode). All three modes (cpu/2p/online) use the same path via
+        startGame→resetClock; online clocks run independently per client (cosmetic).
+  - RATING SYSTEM: researched and deliberately DEFERRED to a dedicated pass — see
+    "RATING SYSTEM — DEFERRED (plan + clean-thread prompt)" near the end of this file.
 
 V1.5 CHANGES — ONLINE PLAY (verified: chess 26/26, relay smoke OK, net e2e
   test OK — two clients mate in sync via a live relay; lobby screenshot +
@@ -278,6 +331,75 @@ IDEAS IF CONTINUING
   - DONE in v1.2: choreo variety (2-3 takes/matchup), castling mini-scene,
     en passant scene, "A Star Is Born" promotion, elaborate checkmate finale,
     stalemate/draw tableaux.
+
+RATING SYSTEM — DEFERRED (plan + clean-thread prompt)
+  WHY DEFERRED: a rating that "globally saves as you play" needs more than a
+  formula — it needs a player-profile + persistence layer (create/select/resume a
+  profile, stored in localStorage; cleared if the user wipes site data), rating
+  math, profile UI on the title/setup screens, and wiring rating updates into
+  game-end. That's a self-contained feature best done in its own pass, not bolted
+  onto this one. (Research source: en.wikipedia.org/wiki/Chess_rating_system.)
+
+  RECOMMENDED DESIGN:
+   - PRIMARY SYSTEM = Elo (the single most widely used; FIDE & USCF since the
+     1960s–70s, simple and transparent). Per game:
+         E = 1 / (1 + 10^((Ropp - R)/400))        (expected score)
+         R' = R + K * (S - E)                      (S = 1 win / 0.5 draw / 0 loss)
+     Provisional K=40 (first ~30 games), K=20 above, K=10 for high ratings.
+     New profiles start at 1200. For vs-CPU games, give each AI level a fixed
+     "opponent rating" (e.g. Student ~1000, Performer ~1500, Virtuoso ~2000) so a
+     human's rating converges sensibly.
+   - "SELECT A DIFFERENT SYSTEM" — important nuance to capture in the prompt: Elo,
+     Glicko-2 (chess.com/lichess), USCF, ECF, DWZ are DIFFERENT statistical models,
+     not unit conversions, so there's no exact two-way conversion. The realistic,
+     honest feature is: let the player choose which system COMPUTES their rating,
+     and when switching, SEED the new system from their current number via the
+     standard published linear approximations, then let it evolve on its own:
+         USCF ≈ FIDE + 50..100      ECF = (Elo - 700) / 7.5   (Elo = 7.5*ECF + 700)
+     Glicko-2 uses the same ~1500-centred scale as Elo, plus a rating deviation
+     (RD, start 350) and volatility (σ, start 0.06); seed rating ≈ current Elo.
+     Show the converted value as an estimate, clearly labelled, when switching.
+   - OPTIONAL SECOND ENGINE = Glicko-2 (better for few games / inactivity). Only
+     add if the player picks it; its full update step is ~30 lines (compute g(RD),
+     E, v, Δ, then iterate the volatility equation). Keep Elo as the default.
+   - PERSISTENCE: a `profiles` map + `activeProfile` id in mg_prefs (or a separate
+     localStorage key 'mg_profiles'). Each profile: {name, system, rating, rd, vol,
+     games, wins, draws, losses, history[]}. Title/Setup gets a small profile
+     picker (create / pick / "Guest" = no rating). Update on endGame for cpu (and
+     optionally online, honour-system) — NOT for 2p-local (whose rating?).
+   - TESTS: add tests/test_rating.js (Elo expected-score + a known Glicko-2 step
+     from the Glickman worked example) so the math is pinned like the chess engine.
+
+  MODEL / EFFORT for that pass: Opus 4.8 at HIGH effort (exact math + persistence +
+  UI + tests warrant the thoroughness; it's not a quick one). It is self-contained
+  and won't touch chess.js, so risk to the verified engine is low.
+
+  IDEAL CLEAN-THREAD PROMPT (copy/paste):
+  ----------------------------------------------------------------------------
+  Continue work on "Maestro's Gambit" (read PROJECT_STATE.txt + skim README.md
+  first; do NOT restructure anything that works; keep everything copyright-
+  original). This pass: add a PLAYER PROFILE + CHESS RATING system.
+
+  - Profiles: create/select/resume a named profile, saved in localStorage (lost
+    only if the user clears site data). Store name, chosen rating system, current
+    rating (+ Glicko RD/volatility if used), and W/D/L + games counts. Add a small
+    profile picker to the title/setup screens, plus a "Guest" option that doesn't
+    track a rating. Show the active profile's rating in the HUD or game-over card.
+  - Rating math: default to Elo (E=1/(1+10^((Ropp-R)/400)); R'=R+K(S-E); K=40
+    provisional then 20/10; start 1200). Update after each vs-CPU game (give each
+    AI level a fixed opponent rating: Student~1000 / Performer~1500 / Virtuoso~2000);
+    optionally update online games (honour system); never for 2P-local.
+  - Let the player pick the system in Options (Elo, Glicko-2, and at least display
+    USCF/ECF equivalents). These are different models, so DON'T claim exact
+    conversion — when switching, SEED the new system from the current rating using
+    the standard approximations (USCF≈FIDE+50..100; ECF=(Elo-700)/7.5; Glicko-2
+    shares the Elo scale with RD=350/σ=0.06) and label converted values as
+    estimates. Implement Glicko-2 fully only if it's the active system.
+  - Put the math in a new js/rating.js (MG.Rating) and persistence in a small
+    profile module; wire rating updates into App.endGame. Add tests/test_rating.js
+    (Elo expected score + a known Glicko-2 step) and keep node tests/test_chess.js
+    at 26/26. Update PROJECT_STATE.txt + README, then commit & push.
+  ----------------------------------------------------------------------------
 
 ARCHITECTURE CHEAT SHEET
   Namespace: globalThis.MG. Script order matters (see index.html).
