@@ -22,9 +22,13 @@
         <div class="title-rule"><span>♩ ♪ ♫</span></div>
         <p class="tagline">A Symphonic Battle of Wits</p>
       </div>
+      <button class="profile-chip" id="title-profile" title="Choose or create a player profile">
+        <span class="pc-icon">♟</span><span class="pc-text" id="title-profile-text">Guest</span>
+      </button>
       <div class="menu-buttons">
         <button class="btn btn-big" id="btn-play">Take the Stage</button>
         <button class="btn" id="btn-howto">How to Play</button>
+        <button class="btn" id="btn-profiles">Profiles</button>
         <button class="btn" id="btn-options">Options</button>
         <button class="btn" id="btn-credits">Credits</button>
       </div>
@@ -34,6 +38,14 @@
     <!-- ====== GAME SETUP SCREEN ====== -->
     <div id="screen-setup" class="screen hidden">
       <h2 class="screen-title">Arrange the Performance</h2>
+
+      <div class="setup-group">
+        <div class="setup-label">Player</div>
+        <button class="profile-chip" id="setup-profile" title="Choose or create a player profile">
+          <span class="pc-icon">♟</span><span class="pc-text" id="setup-profile-text">Guest</span>
+          <span class="pc-change">Change ▾</span>
+        </button>
+      </div>
 
       <div class="setup-group">
         <div class="setup-label">Mode</div>
@@ -126,6 +138,17 @@
           <button class="seg-btn" data-v="countup">Count Up <small>total time</small></button>
         </div>
       </div>
+      <div class="opt-row">
+        <label>Rating System</label>
+        <div class="seg seg-small" id="seg-rating">
+          <button class="seg-btn sel" data-v="elo">Elo <small>classic</small></button>
+          <button class="seg-btn" data-v="glicko">Glicko-2 <small>chess.com style</small></button>
+        </div>
+        <span class="opt-val" id="rating-estimate">Guest</span>
+      </div>
+      <p class="hint-text">Elo and Glicko-2 are different statistical models — there's no exact
+      conversion. Switching re-seeds your active profile from its current number and shows
+      USCF/ECF as estimates only. Create a profile (Profiles screen) to start tracking a rating.</p>
       <p class="hint-text">Tip: a bundled synth soundtrack loops during games — pick a track above.
       Load your own audio file to override it, or Clear to return to the bundled set.<br>
       During a battle scene, click or press Esc to skip ahead.</p>
@@ -175,6 +198,26 @@
       </div>
       <div class="menu-buttons">
         <button class="btn" id="btn-credits-back">Back</button>
+      </div>
+    </div>
+
+    <!-- ====== PLAYER PROFILES ====== -->
+    <div id="screen-profiles" class="screen hidden">
+      <h2 class="screen-title">Player Profiles</h2>
+      <p class="hint-text profiles-intro">Your rating is saved on this device and updates as you
+        play the computer (and online, on the honour system). Local two-player games never affect it.</p>
+
+      <div class="profile-list" id="profile-list"><!-- filled by ui.js --></div>
+
+      <div class="profile-new">
+        <input id="new-profile-name" class="code-input profile-name-input" maxlength="24"
+               autocomplete="off" spellcheck="false" placeholder="New profile name">
+        <button class="btn" id="btn-create-profile">Create</button>
+      </div>
+
+      <div class="menu-buttons row">
+        <button class="btn" id="btn-profiles-back">Back</button>
+        <button class="btn" id="btn-play-guest" title="Play without tracking a rating">Play as Guest</button>
       </div>
     </div>
 
@@ -243,6 +286,7 @@
         <div id="hud-turn-banner">Ivory to move</div>
         <div class="hud-name" id="hud-white-name">Ivory</div>
       </div>
+      <div id="hud-profile" class="hidden"><span class="pc-icon">♟</span> <span id="hud-profile-text"></span></div>
       <div id="hud-side">
         <div class="mg-clock obsidian" id="clock-b"><span class="clk-name">Obsidian</span><span class="seg7-display" id="clock-b-seg"></span></div>
         <div class="cap-row" id="cap-black"></div>
@@ -292,6 +336,7 @@
       <div class="modal-card">
         <h3 id="go-title">Checkmate</h3>
         <p id="go-sub">The Ivory Philharmonic takes the final bow.</p>
+        <p id="go-rating" class="go-rating hidden"></p>
         <div class="menu-buttons row">
           <button class="btn" id="btn-go-menu">Main Menu</button>
           <button class="btn btn-big" id="btn-go-rematch">Encore (Rematch)</button>
@@ -310,6 +355,8 @@
 <script src="js/fx.js"></script>
 <script src="js/battle.js"></script>
 <script src="js/board.js"></script>
+<script src="js/rating.js"></script>
+<script src="js/profiles.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/net.js"></script>
 <script src="js/main.js"></script>

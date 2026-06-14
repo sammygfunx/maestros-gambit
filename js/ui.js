@@ -7,7 +7,7 @@
   const MG = (globalThis.MG = globalThis.MG || {});
   const $ = (id) => document.getElementById(id);
 
-  const SCREENS = ['screen-title', 'screen-setup', 'screen-options', 'screen-howto', 'screen-credits', 'screen-online'];
+  const SCREENS = ['screen-title', 'screen-setup', 'screen-options', 'screen-howto', 'screen-credits', 'screen-online', 'screen-profiles'];
 
   const UI = {
     handlers: {},
@@ -18,13 +18,21 @@
     init(handlers) {
       this.handlers = handlers;
       this.loadPrefs();
+      MG.Profiles.load();
 
       /* ---- navigation ---- */
       const nav = (btn, fn) => $(btn).addEventListener('click', () => { MG.Audio.uiClick(); fn(); });
       nav('btn-play', () => this.show('screen-setup'));
       nav('btn-howto', () => this.show('screen-howto'));
-      nav('btn-options', () => this.show('screen-options'));
+      nav('btn-options', () => { this.refreshRatingOption(); this.show('screen-options'); });
       nav('btn-credits', () => this.show('screen-credits'));
+      nav('btn-profiles', () => this.openProfiles());
+      nav('title-profile', () => this.openProfiles());
+      nav('setup-profile', () => this.openProfiles('screen-setup'));
+      nav('btn-profiles-back', () => this.show(this._profilesReturn || 'screen-title'));
+      nav('btn-play-guest', () => { MG.Profiles.playAsGuest(); this.refreshProfileUI(); this.renderProfiles(); });
+      nav('btn-create-profile', () => this.createProfileFromInput());
+      $('new-profile-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') this.createProfileFromInput(); });
       nav('btn-setup-back', () => this.show('screen-title'));
       nav('btn-options-back', () => this.show('screen-title'));
       nav('btn-howto-back', () => this.show('screen-title'));
@@ -45,6 +53,15 @@
       this.segInit('seg-battles', (v) => { this.setup.battles = v; this.savePrefs(); }, this.setup.battles);
       this.segInit('seg-speed', (v) => { this.settings.speed = +v; this.savePrefs(); }, String(this.settings.speed));
       this.segInit('seg-clock', (v) => { this.settings.clockMode = v; this.savePrefs(); handlers.setClockMode(v); }, this.settings.clockMode);
+      // Rating system applies to the ACTIVE profile (seeds the new model from
+      // the current number). Guests have nothing to track, so it no-ops.
+      this.segInit('seg-rating', (v) => {
+        const prof = MG.Profiles.active();
+        if (prof.guest) { this.refreshRatingOption(); return; }
+        MG.Profiles.setSystem(prof, v);
+        this.refreshRatingOption();
+        this.refreshProfileUI();
+      }, MG.Profiles.active().system || 'elo');
 
       /* ---- options ---- */
       const sfx = $('opt-sfx'), mus = $('opt-music');
@@ -169,6 +186,107 @@
       const unlock = () => { MG.Audio.resume(); };
       document.addEventListener('pointerdown', unlock, { once: false });
       document.addEventListener('keydown', unlock, { once: false });
+
+      this.refreshProfileUI();
+    },
+
+    /* ---- player profiles ---- */
+    openProfiles(returnTo) {
+      this._profilesReturn = returnTo || 'screen-title';
+      $('new-profile-name').value = '';
+      this.renderProfiles();
+      this.show('screen-profiles');
+    },
+    createProfileFromInput() {
+      const input = $('new-profile-name');
+      const name = input.value.trim();
+      if (!name) { input.focus(); return; }
+      MG.Audio.uiClick();
+      // a brand-new profile adopts whichever system is currently selected in Options
+      MG.Profiles.create(name, MG.Profiles.active().system || 'elo');
+      input.value = '';
+      this.renderProfiles();
+      this.refreshProfileUI();
+    },
+    renderProfiles() {
+      const list = $('profile-list');
+      const all = MG.Profiles.all();
+      const activeId = MG.Profiles.data.activeId;
+      let html = '';
+      // Guest is always offered first
+      html += this._profileRow({ id: 'guest', name: 'Guest', guest: true },
+        MG.Profiles.isGuestId(activeId));
+      if (!all.length) {
+        html += '<div class="profile-empty">No saved profiles yet — create one below to track a rating.</div>';
+      }
+      for (const p of all) html += this._profileRow(p, p.id === activeId);
+      list.innerHTML = html;
+      list.querySelectorAll('.profile-item').forEach((el) => {
+        el.addEventListener('click', (e) => {
+          if (e.target.closest('.pi-del')) return;
+          MG.Audio.uiClick();
+          MG.Profiles.setActive(el.dataset.id);
+          this.renderProfiles();
+          this.refreshProfileUI();
+        });
+      });
+      list.querySelectorAll('.pi-del').forEach((btn) => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const id = btn.dataset.id;
+          const prof = MG.Profiles.get(id);
+          this.askConfirm('Delete profile?', `“${prof ? prof.name : ''}” and its rating history will be removed from this device.`, 'Delete', 'Keep')
+            .then((yes) => { if (yes) { MG.Profiles.remove(id); this.renderProfiles(); this.refreshProfileUI(); } });
+        });
+      });
+    },
+    _profileRow(p, active) {
+      if (p.guest) {
+        return `<button class="profile-item${active ? ' active' : ''}" data-id="guest">
+          <div class="pi-main"><div class="pi-name">Guest</div>
+          <div class="pi-stats">No rating tracked — just play.</div></div>
+          <div class="pi-rating">—</div></button>`;
+      }
+      const sys = MG.Rating.label(p.system);
+      const rec = `${p.wins}W · ${p.draws}D · ${p.losses}L · ${p.games} games`;
+      return `<button class="profile-item${active ? ' active' : ''}" data-id="${p.id}">
+        <div class="pi-main"><div class="pi-name">${this._esc(p.name)}</div>
+        <div class="pi-stats">${sys} · ${rec}</div></div>
+        <div class="pi-rating">${p.rating}</div>
+        <button class="pi-del" data-id="${p.id}" title="Delete this profile">✕</button></button>`;
+    },
+    _esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); },
+
+    // refresh every place the active profile is shown (chips + options + HUD)
+    refreshProfileUI() {
+      const prof = MG.Profiles.active();
+      const chip = prof.guest ? 'Guest' : `${this._esc(prof.name)} · ${prof.rating}`;
+      $('title-profile-text').textContent = prof.guest ? 'Guest' : `${prof.name} · ${prof.rating}`;
+      $('setup-profile-text').textContent = prof.guest ? 'Guest' : `${prof.name} · ${prof.rating}`;
+      this.refreshRatingOption();
+      this.setHudProfile();
+    },
+    // reflect the active profile's system + an estimate line in Options
+    refreshRatingOption() {
+      const prof = MG.Profiles.active();
+      const seg = $('seg-rating');
+      if (seg) {
+        const sys = prof.guest ? 'elo' : (prof.system || 'elo');
+        seg.querySelectorAll('.seg-btn').forEach((b) => b.classList.toggle('sel', b.dataset.v === sys));
+      }
+      const est = $('rating-estimate');
+      if (est) {
+        est.textContent = prof.guest ? 'Guest — no rating tracked'
+          : MG.Rating.estimateLine(prof.rating);
+      }
+    },
+    // small HUD chip (shown only when a real profile is active)
+    setHudProfile() {
+      const prof = MG.Profiles.active();
+      const box = $('hud-profile');
+      if (prof.guest) { box.classList.add('hidden'); return; }
+      $('hud-profile-text').textContent = MG.Rating.label(prof.system) + ' ' + prof.rating;
+      box.classList.remove('hidden');
     },
 
     segInit(id, onChange, initial) {
@@ -400,9 +518,12 @@
       fill('cap-black', capturedByBlack, 'w');
     },
 
-    showGameOver(title, sub) {
+    showGameOver(title, sub, ratingHtml) {
       $('go-title').textContent = title;
       $('go-sub').textContent = sub;
+      const gr = $('go-rating');
+      if (ratingHtml) { gr.innerHTML = ratingHtml; gr.classList.remove('hidden'); }
+      else gr.classList.add('hidden');
       $('screen-gameover').classList.remove('hidden');
     },
 

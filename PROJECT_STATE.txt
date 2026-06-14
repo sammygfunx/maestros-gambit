@@ -1,7 +1,10 @@
 MAESTRO'S GAMBIT — PROJECT STATE
-Last updated: 2026-06-14 (v1.6 — bundled relay URL + "connecting" flourish
+Last updated: 2026-06-14 (v1.7 — player profiles + chess rating system: Elo
+(default) & full Glicko-2, USCF/ECF estimates, localStorage profiles, profile
+picker + Options system selector, rating shown in HUD & game-over card)
+Prior: v1.6 — bundled relay URL + "connecting" flourish
 (animated label, predictable progress bar, 100 rotating orchestral facts);
-per-player seven-segment chess clocks (countdown + count-up))
+per-player seven-segment chess clocks (countdown + count-up)
 Prior: v1.5 — online play: room-code WebSocket relay, Online Duel mode + lobby,
 move/resign/rematch/disconnect sync
 Prior: v1.4 — mobile/responsive support: hi-DPI canvas, responsive HUD,
@@ -12,6 +15,68 @@ Prior: v1.2 — choreography variety, castling/en-passant/promotion/stalemate/
 draw set-piece scenes, elaborate checkmate finale
 Prior: v1.1 — battle-end fix, curtain hold, camera views, quit confirm,
 mid-battle resize
+
+V1.7 CHANGES — PLAYER PROFILES + CHESS RATING SYSTEM
+  (verified: chess 26/26; rating 20/20; node --check on all touched files; a
+  headless browser-DOM probe drove the full profile lifecycle 9/9 — create,
+  Elo+Glicko game updates, system-switch seeding, localStorage round-trip,
+  delete→Guest; title + profiles screenshots clean; load = zero console errors)
+  - RATING MATH (js/rating.js, NEW — MG.Rating): pure, DOM-free, node-testable.
+      * Elo (DEFAULT): expected(R,Ropp)=1/(1+10^((Ropp-R)/400)); updateElo applies
+        R'=R+K(S-E). kFactor: 40 provisional (<30 games) / 20 / 10 (>=2400). New
+        profiles start at 1200. AI_RATINGS=[1000,1500,2000] (Student/Performer/
+        Virtuoso) are the fixed opponent ratings for vs-CPU games.
+      * Glicko-2 (FULL Glickman-2013 algorithm): g(), E, v, Δ, the volatility
+        equation solved by Illinois, then φ*/φ'/μ'. updateGlicko(rating,rd,vol,
+        results,τ) takes a rating period (we pass one game/period live); also
+        handles an idle period (RD grows). SCALE=400/ln(10)=173.7178; defaults
+        RD 350 / σ 0.06 / τ 0.5. Pinned to the published worked example
+        (1464.06 / 151.52 / 0.05999) in tests/test_rating.js.
+      * Display equivalents are ESTIMATES ONLY (different models, not unit
+        conversions): eloToUSCF=Elo+75, eloToECF=(Elo-700)/7.5, estimateLine()
+        for the Options "USCF ≈ … · ECF ≈ …" readout.
+      * seedFor(system,current): switching the computing system carries the
+        current number across (Glicko shares the Elo scale) and resets Glicko
+        RD/σ. SYSTEMS = {elo:'Elo', glicko:'Glicko-2'}.
+  - PROFILE PERSISTENCE (js/profiles.js, NEW — MG.Profiles): own localStorage key
+    'mg_profiles' = {profiles:{id:{...}}, activeId}. A profile is {id,name,system,
+    rating,rd,vol,games,wins,draws,losses,history[]} (history capped at 50).
+    "Guest" is a SYNTHETIC, never-saved profile (id 'guest') that tracks nothing.
+    API: load/save, all/get/active/isGuest, setActive/playAsGuest, create(name,
+    system), remove, setSystem(prof,sys) [seeds via MG.Rating], recordGame(prof,
+    score,oppRating,opts) → {before,after,delta,system} (null for Guest), and
+    ratingLabel(). recordGame routes to Elo or Glicko per the profile's system.
+  - UI (index.html, css/style.css, js/ui.js):
+      * PROFILE PICKER: a pill "profile-chip" on the TITLE screen (top) and SETUP
+        screen ("Player" group) both open a new SCREEN-PROFILES; a "Profiles"
+        menu button does too. The profiles screen lists Guest + every saved
+        profile (name, system, W/D/L, rating; active highlighted), each selectable
+        with a ✕ delete (confirm dialog); a name input + Create; "Play as Guest".
+      * OPTIONS gains a "Rating System" segmented control (Elo / Glicko-2) that
+        re-seeds the ACTIVE profile (no-op for Guest) plus a live "USCF ≈ … ·
+        ECF ≈ …" estimate line (#rating-estimate). seg-rating reflects the active
+        profile's system whenever Options opens (refreshRatingOption()).
+      * HUD chip (#hud-profile, top-left) shows "Elo 1234" during play, hidden for
+        Guest. GAME-OVER card gained #go-rating: "Elo 1200 → 1212 (+12)" coloured
+        green/red by delta. refreshProfileUI() keeps every surface in sync.
+      * ui.js: SCREENS += 'screen-profiles'; MG.Profiles.load() in init; helpers
+        openProfiles/createProfileFromInput/renderProfiles/refreshProfileUI/
+        refreshRatingOption/setHudProfile; showGameOver gained an optional 3rd
+        ratingHtml arg.
+  - WIRING (js/main.js): startGame resets this.ratedThisGame and calls
+    MG.UI.setHudProfile(). endGame computes the result via applyRatingResult(winner)
+    BEFORE the 900ms card delay and passes the rating line into showGameOver.
+    applyRatingResult: skips 2P-local and Guest; score = 0.5 (draw, winner null) /
+    1 / 0 from the human's view; oppRating = AI_RATINGS[level] for cpu, or the
+    player's OWN rating for online (honour system, unknown opponent → graded as an
+    equal). Guarded by ratedThisGame so a game counts once. onPeerLeft (disconnect)
+    deliberately does NOT rate — the game was incomplete. New dev hook
+    ?screen=profiles opens the profiles screen.
+  - SCRIPT ORDER: rating.js then profiles.js load AFTER board.js and BEFORE ui.js
+    (ui.js uses MG.Profiles; profiles.js uses MG.Rating).
+  - NOT TOUCHED: chess.js/ai.js/battle.js/sprites.js/fx.js/board.js/net.js/audio.js
+    unchanged — zero risk to the verified engine + choreography (soak not re-run by
+    design, as none of those files changed).
 
 V1.6 CHANGES — RELAY URL + CONNECTING FLOURISH + CHESS CLOCKS
   (verified: chess 26/26; node --check all touched files; headless screenshots
@@ -60,8 +125,9 @@ V1.6 CHANGES — RELAY URL + CONNECTING FLOURISH + CHESS CLOCKS
         hides both clocks; persisted with clockMode in mg_prefs (settings.clockShown
         / settings.clockMode). All three modes (cpu/2p/online) use the same path via
         startGame→resetClock; online clocks run independently per client (cosmetic).
-  - RATING SYSTEM: researched and deliberately DEFERRED to a dedicated pass — see
-    "RATING SYSTEM — DEFERRED (plan + clean-thread prompt)" near the end of this file.
+  - RATING SYSTEM: researched and deliberately DEFERRED to a dedicated pass — now
+    DONE in v1.7 (see V1.7 CHANGES above). The original plan is kept near the end
+    of this file under "RATING SYSTEM — DONE in v1.7 (original plan)" for reference.
 
 V1.5 CHANGES — ONLINE PLAY (verified: chess 26/26, relay smoke OK, net e2e
   test OK — two clients mate in sync via a live relay; lobby screenshot +
@@ -332,7 +398,12 @@ IDEAS IF CONTINUING
     en passant scene, "A Star Is Born" promotion, elaborate checkmate finale,
     stalemate/draw tableaux.
 
-RATING SYSTEM — DEFERRED (plan + clean-thread prompt)
+RATING SYSTEM — DONE in v1.7 (original plan)
+  STATUS: IMPLEMENTED — see V1.7 CHANGES at the top. The recommended design below
+  was followed essentially as written (Elo default + full Glicko-2, honest
+  seeding/estimates, profile persistence, profile UI, endGame wiring, tests).
+  Kept here for the rationale.
+
   WHY DEFERRED: a rating that "globally saves as you play" needs more than a
   formula — it needs a player-profile + persistence layer (create/select/resume a
   profile, stored in localStorage; cleared if the user wipes site data), rating

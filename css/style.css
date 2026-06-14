@@ -300,8 +300,71 @@ html, body {
 .r-role { color: var(--gold-dim); font-style: italic; white-space: nowrap; }
 .credits-body { text-align: center; }
 
+/* ---------- player profiles ---------- */
+.profile-chip {
+  display: inline-flex; align-items: center; gap: 9px;
+  margin: 0 auto 6px;
+  padding: 8px 16px;
+  background: rgba(18,9,24,.7);
+  border: 2px solid var(--gold-dim); border-radius: 999px;
+  color: var(--gold-bright); font-family: inherit; font-size: 16px; letter-spacing: 1px;
+  cursor: pointer; transition: border-color .15s, color .15s;
+}
+.profile-chip:hover { border-color: var(--gold-bright); color: var(--gold-bright); }
+.profile-chip .pc-icon { color: var(--gold); font-size: 18px; }
+.profile-chip .pc-change { color: var(--gold-dim); font-size: 13px; font-style: italic; }
+#setup-profile { width: min(420px, 100%); justify-content: space-between; }
+
+.profiles-intro { max-width: 560px; text-align: center; }
+.profile-list {
+  display: flex; flex-direction: column; gap: 8px;
+  width: min(520px, 100%); margin: 4px auto 14px;
+}
+.profile-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 16px;
+  background: rgba(18,9,24,.78);
+  border: 2px solid #3a2342; border-radius: 10px;
+  cursor: pointer; text-align: left; color: var(--parchment);
+  font-family: inherit; transition: border-color .15s, background .15s;
+}
+.profile-item:hover { border-color: var(--gold-dim); }
+.profile-item.active { border-color: var(--gold); background: rgba(40,22,52,.85); }
+.profile-item .pi-main { flex: 1; min-width: 0; }
+.profile-item .pi-name { font-size: 18px; color: var(--gold-bright); letter-spacing: 1px; }
+.profile-item .pi-stats { font-size: 13px; color: var(--gold-dim); margin-top: 2px; }
+.profile-item .pi-rating {
+  font-family: 'Courier New', monospace; font-size: 20px; color: var(--gold);
+  text-align: right; white-space: nowrap;
+}
+.profile-item .pi-del {
+  background: none; border: 1px solid #5a3242; border-radius: 6px;
+  color: #b07; font-size: 13px; padding: 4px 9px; cursor: pointer;
+}
+.profile-item .pi-del:hover { border-color: #d39; color: #f5a; }
+.profile-empty { color: var(--gold-dim); font-style: italic; text-align: center; padding: 10px; }
+.profile-new {
+  display: flex; gap: 10px; align-items: center;
+  width: min(520px, 100%); margin: 0 auto 6px;
+}
+.profile-name-input { flex: 1; letter-spacing: 1px; text-align: left; text-transform: none; }
+
+#rating-estimate { font-family: 'Courier New', monospace; }
+.go-rating {
+  font-family: 'Courier New', monospace; font-size: 18px !important;
+  color: var(--gold-bright); margin-top: -4px;
+}
+.go-rating .gr-up { color: #7fd98a; }
+.go-rating .gr-down { color: #ff8d6b; }
+
 /* ---------- HUD ---------- */
 #hud { position: absolute; inset: 0; z-index: 10; pointer-events: none; }
+#hud-profile {
+  position: absolute; left: max(14px, env(safe-area-inset-left)); top: 52px;
+  font-size: 13px; letter-spacing: 1px; color: var(--gold-dim);
+  background: rgba(10,5,14,.55); padding: 3px 10px; border-radius: 999px;
+}
+#hud-profile .pc-icon { color: var(--gold); }
 #hud-top {
   position: absolute; top: 0; left: 0; right: 0;
   display: flex; align-items: center; justify-content: space-between;

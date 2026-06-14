@@ -63,6 +63,14 @@ is generated procedurally at runtime.
 - **Bring your own soundtrack:** Options → *Your Music* loads any local audio
   file and loops it during play (overriding the bundled track); a **Clear**
   button removes it and returns to the bundled set.
+- **Player profiles & chess ratings** — create a named profile (saved on your
+  device) and your rating updates after every game against the computer. Each AI
+  level is a fixed opponent (Student ≈ 1000, Performer ≈ 1500, Virtuoso ≈ 2000),
+  so your number converges sensibly; online games count on the honour system, and
+  local two-player games never affect a rating. Pick the rating model in Options —
+  **Elo** (the classic, default) or **Glicko-2** (the chess.com/Lichess style) —
+  with USCF/ECF figures shown as estimates. Or choose **Guest** to play untracked.
+  Your rating appears in the HUD and on the game-over card (e.g. *Elo 1200 → 1212*).
 - Settings persist between sessions (localStorage).
 
 ## Play online
@@ -110,12 +118,15 @@ js/sprites.js     procedural pixel-art characters, rigs & poses
 js/fx.js          particles: notes, rings, lightning, piano-drop, curtain
 js/battle.js      battle stage + the 36-duel choreography book
 js/board.js       board view (3 camera projections), move animation, input
-js/ui.js          DOM glue: screens, options, HUD, dialogs, online lobby
+js/rating.js      rating math: Elo + full Glicko-2, USCF/ECF estimates (unit-tested)
+js/profiles.js    player-profile persistence (localStorage 'mg_profiles')
+js/ui.js          DOM glue: screens, options, HUD, dialogs, online lobby, profiles
 js/net.js         online client: room-code WebSocket relay glue
 js/main.js        game controller / state machine / render loop
 server/relay/     standalone Node WebSocket relay for Online Duel + its README
-tests/            node tests/test_chess.js (26 assertions incl. perft)
-                  node tests/test_net.js   (two clients play through the relay)
+tests/            node tests/test_chess.js  (26 assertions incl. perft)
+                  node tests/test_rating.js (Elo + the Glickman Glicko-2 example)
+                  node tests/test_net.js    (two clients play through the relay)
 shots/            reference screenshots taken during development (not in repo; regenerate with ?shot=)
 ```
 
@@ -125,6 +136,7 @@ shots/            reference screenshots taken during development (not in repo; r
 `?shot=castle&c=w` · `?shot=ep` · `?shot=star&promo=Q|R|B|N` · `?shot=end&kind=draw|stalemate`
 `?shot=capture` / `?shot=mate` (scripted games) · `?shot=promo` · `?shot=gameover`
 `?shot=soak` runs every choreography take and set-piece scene to completion (logs
-`SOAK DONE 88/88`). `?screen=online` opens the online lobby directly. `&warp=N`
+`SOAK DONE 88/88`). `?screen=online` opens the online lobby directly;
+`?screen=profiles` opens the player-profiles screen. `&warp=N`
 multiplies game speed. Remove `debugHook()` in `main.js` to strip these from a
 release build.

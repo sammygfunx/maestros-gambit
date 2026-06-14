@@ -106,6 +106,7 @@
       const q = new URLSearchParams(location.search);
       const screen = q.get('screen');
       if (screen === 'online') { MG.UI.setup.mode = 'online'; MG.UI.openLobby(); return; }
+      if (screen === 'profiles') { MG.UI.openProfiles(); return; }
       const shot = q.get('shot');
       if (!shot) return;
       MG.Audio.enabled = false;
@@ -332,6 +333,7 @@
       this.board.fxl.clear();
       this.over = false;
       this.busy = false;
+      this.ratedThisGame = false;   // guard so a game updates a rating only once
       this.state = 'board';
 
       const youTag = (c) => {
@@ -351,6 +353,7 @@
       MG.UI.updateCaptured([], []);
       MG.UI.setTurn('w', false);
       MG.UI.showGame();
+      MG.UI.setHudProfile();   // show the active profile's rating (hidden for Guest)
       MG.Audio.resume();
       MG.Audio.playMusic();
       MG.Audio.castle(); // opening flourish
@@ -770,7 +773,41 @@
       } else {
         MG.Audio.drawCue();
       }
-      setTimeout(() => MG.UI.showGameOver(title, sub), 900);
+      const ratingHtml = this.applyRatingResult(winner);
+      setTimeout(() => MG.UI.showGameOver(title, sub, ratingHtml), 900);
+    },
+
+    /* Update the active profile's rating for this finished game and return a
+       little "1200 → 1212 (+12)" line for the game-over card (or null when the
+       result isn't rated: Guest, local two-player, or already counted). */
+    applyRatingResult(winner) {
+      if (!this.session || this.ratedThisGame) return null;
+      if (this.session.mode === '2p') return null;          // local 2P never rated
+      const prof = MG.Profiles.active();
+      if (prof.guest) return null;
+      this.ratedThisGame = true;
+
+      const human = this.session.humanColor;
+      const score = winner == null ? 0.5 : (winner === human ? 1 : 0);
+      let oppRating, label;
+      if (this.session.mode === 'cpu') {
+        const ai = MG.Rating.AI_RATINGS;
+        oppRating = ai[this.session.level] != null ? ai[this.session.level] : 1500;
+        label = ['Student', 'Performer', 'Virtuoso'][this.session.level] || 'CPU';
+      } else {
+        // online is honour-system: the opponent's rating is unknown, so grade
+        // the game against an equal — a win/loss nudges, a draw is neutral.
+        oppRating = prof.rating;
+        label = 'Online';
+      }
+
+      const r = MG.Profiles.recordGame(prof, score, oppRating, { label });
+      if (!r) return null;
+      MG.UI.setHudProfile();   // reflect the new number behind the card
+      const sign = r.delta > 0 ? '+' : '';
+      const cls = r.delta > 0 ? 'gr-up' : (r.delta < 0 ? 'gr-down' : '');
+      return `${MG.Rating.label(r.system)} ${r.before} → <b>${r.after}</b> ` +
+        `<span class="${cls}">(${sign}${r.delta})</span>`;
     },
 
     /* ============== title ambience ============== */
