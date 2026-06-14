@@ -1,0 +1,291 @@
+MAESTRO'S GAMBIT — PROJECT STATE
+Last updated: 2026-06-14 (v1.5 — online play: room-code WebSocket relay,
+Online Duel mode + lobby, move/resign/rematch/disconnect sync)
+Prior: v1.4 — mobile/responsive support: hi-DPI canvas, responsive HUD,
+fluid battle banner, touch hygiene
+Prior: v1.3 — bundled original synth soundtrack, per-character stingers,
+soundtrack options, clear-your-music button
+Prior: v1.2 — choreography variety, castling/en-passant/promotion/stalemate/
+draw set-piece scenes, elaborate checkmate finale
+Prior: v1.1 — battle-end fix, curtain hold, camera views, quit confirm,
+mid-battle resize
+
+V1.5 CHANGES — ONLINE PLAY (verified: chess 26/26, relay smoke OK, net e2e
+  test OK — two clients mate in sync via a live relay; lobby screenshot +
+  zero-overflow probe; capture-pipeline regression screenshot)
+  - ARCHITECTURE: the game stays pure HTML/JS/Canvas with NO dependencies. Online
+    is "mirror-and-relay": BOTH browsers run the same deterministic js/chess.js;
+    a tiny stateless relay only forwards each move + a few control messages. No
+    server-side chess, no accounts, no DB. Turn-based, so no rollback/prediction.
+  - RELAY (server/relay/, standalone Node + `ws`, adapted from the Key Spar relay):
+    hardened room-code WebSocket relay. 5-letter codes, 2 players/room, in-memory,
+    heartbeats, idle/TTL cleanup, origin allow-list, /healthz, message validation.
+    Env prefix MG_RELAY_*. GAME_CHANNELS reduced to two: 'move' {from,to,promo}
+    and 'control' {action: resign|rematch-request}. Deploy free on Render (see
+    server/relay/README.md). `npm run smoke` self-tests; tests/test_net.js drives
+    two real clients through it to a synced checkmate. node_modules/ws is vendored
+    so smoke/e2e run offline.
+  - CLIENT (js/net.js — MG.Net): WebSocket glue. host(side)/join(code), auto
+    start-match on pairing (host resolves the coin toss + tells the joiner who is
+    Ivory), sendMove/sendControl, requestRematch, leave(). DEFAULT_RELAY_URL const
+    at the top: set it to your wss:// URL for one-click Host/Join with nothing to
+    type; otherwise the lobby's Server field is used (persisted as settings.relayUrl).
+    Handlers (onStatus/onRoomCreated/onStartMatch/onMove/onControl/onPeerLeft/
+    onError) are wired in main.js. Requires wss:// when the page is https.
+  - LOBBY (index.html #screen-online, ui.js, style.css): setup screen gains a third
+    mode 'online' (seg-mode). UI.applyMode(v) now drives the setup groups: difficulty
+    is CPU-only, the side selector doubles as the host's preferred colour for online,
+    and the start button reads "Go Online →" and opens the lobby instead of starting.
+    Lobby = two cards (Host → reveals room code w/ Copy; Join → 5-letter input),
+    a collapsible Server settings (relay URL; auto-opens when no default/saved URL),
+    a live status line, Back. UI.online.{setStatus,showCode,reenable} are the
+    main→lobby update surface. Velvet/gold styling; responsive block stacks the
+    cards on phones. Dev hook: ?screen=online opens the lobby directly.
+  - PIPELINE WIRING (main.js): session.mode 'online' joins 'cpu'/'2p'.
+      * startGame: humanColor = assigned colour; session.hostColor tracked (who
+        drives rematches); Undo button hidden (no free takebacks online); HUD names
+        show "(You)/(Opponent)". startOnlineGame(myColor) is the entry from onStartMatch.
+      * commitLocalMove(m): relays the move (MG.Net.sendMove) then plays it locally;
+        onPointer's two commit points now call it. isHumanTurn() online = your colour
+        AND MG.Net.paired; isCpuTurn() stays cpu-only so no AI fires.
+      * Inbound moves: applyRemoteMove → remoteQueue → drainRemote() reconstructs the
+        move from legalMoves() (same from/to/promo match the e2e test uses) and plays
+        it when nothing else is animating (afterMoveResolve drains the queue). Robust
+        if your battle scene is still playing when the opponent's reply arrives.
+      * Checkmate/stalemate/draw need NO network message — both engines reach them
+        independently. Only resign (control 'resign') and rematch are messaged.
+      * resign online: ends locally + sends control; the peer ends as winner.
+        Rematch: host drives (startHostRematch swaps colours via startMatchAsHost);
+        the joiner sends 'rematch-request'. onPeerLeft ends the match with an
+        "Opponent Left" card. quitToMenu calls MG.Net.leave() (peer sees you go).
+        endGame plays fanfare/dirge per the local player's result for online too.
+  - NOT DONE (deliberate, test-scope): no accounts/matchmaking/reconnect-resume/
+    spectators/anti-cheat; in-memory rooms vanish on relay restart; one relay
+    process only. Move integrity relies on both clients running the honest engine.
+  - REAL-DEVICE / TWO-NETWORK CHECK still pending: only local relay + headless were
+    exercised here. Deploy the relay (Render) and play from two networks before
+    treating online as fully validated; confirm wss:// on an https-hosted build and
+    Render free-tier cold-start (open /healthz first).
+
+V1.4 CHANGES — MOBILE / RESPONSIVE (verified: 26/26 tests, soak 88/88,
+  emulated portrait + landscape screenshots for board/battle/menus, all 3 cameras)
+  - HI-DPI / RETINA CANVAS (main.js resize): the backing store is now
+    innerWidth/innerHeight * devicePixelRatio (MG.dpr, capped at 2 for fill-rate).
+    IMPORTANT ARCH NOTE: all game coordinates stay in CSS pixels. Every top-level
+    draw re-applies ctx.setTransform(dpr,0,0,dpr,0,0) (board.draw, battle.draw,
+    drawTitle). The handful of places that read canvas.width/height as a *logical*
+    size now divide by MG.dpr: board.layout, battle._setupScene, battle.relayout,
+    drawTitle, fx.js curtain + drawFlash. Pointer input is unchanged (clientX/Y
+    are already CSS px and the canvas is full-window at 0,0). Net effect: crisp
+    sprites/board on retina with zero coordinate-math changes elsewhere.
+  - RESPONSIVE BOARD LAYOUT (board.js layout): breakpoints mirror style.css.
+    wide (W>900 && H>560) → 230px right side panel (unchanged desktop/tablet).
+    portrait phone/tablet → side panel collapses to a BOTTOM dock; board reserves
+    bottomReserve (clamped 150–210px) of vertical room. landscape phone → thin
+    168px right panel. topReserve/bottomReserve feed both the iso/rot centering
+    (oy) and the 'table' projection (cy uses H - bottomReserve - 30).
+  - RESPONSIVE HUD (css/style.css, new @media blocks at end):
+      portrait (max-width:900 + orientation portrait): #hud-side becomes a bottom
+        strip — two capture trays side-by-side, a slim move-list, and the 5
+        buttons wrapping to a 3+2 grid (min-width:0 so long labels shrink).
+      landscape (max-height:560): thin right panel, smaller fonts/targets.
+      small menus (max-width:760 OR max-height:560): screens scroll, segmented
+        controls/buttons go full-width, title block & modals shrink.
+      very short (max-height:430): clef/rule hidden so the menu fits without scroll.
+    Safe-area insets (env(safe-area-inset-*)) pad hud-top and the bottom dock for
+    notches/home indicators (viewport meta has viewport-fit=cover).
+  - FLUID BATTLE BANNER (battle.js draw): replaced the fixed 520px box (which
+    clipped on narrow screens) with a text-measured box that hugs the title,
+    capped at W-24 and auto-shrinking the font if still too wide. Subtitle now
+    reads "tap or Esc to skip".
+  - TOUCH HYGIENE (index.html meta + style.css): viewport gains maximum-scale=1,
+    user-scalable=no, viewport-fit=cover + theme-color/apple-web-app metas.
+    #game-canvas touch-action:none (no board drag-scroll); buttons
+    touch-action:manipulation (no 300ms delay / double-tap zoom); scroll panels
+    keep touch-action:pan-y; body overscroll-behavior:none. Tap-to-select/move and
+    tap-to-skip-battle already ran through pointerdown — confirmed working.
+
+  NEEDS REAL-DEVICE CHECK (only emulated viewports were tested):
+    - iOS Safari honoring user-scalable=no / pinch-zoom suppression.
+    - Actual safe-area insets on a notched device.
+    - WebAudio unlock on first real touch; audio latency on mobile.
+    - Battle-scene frame rate / fill-rate on a low-end phone (dpr capped at 2).
+
+V1.3 CHANGES (all verified: 26/26 tests, soak 88/88, audio paths smoke-tested)
+  - BUNDLED SOUNDTRACK (audio.js): a step-sequencer plays original, fully
+    synthesized looping tracks through the existing instrument voices (NO
+    samples/files/deps). TRACKS[] holds note-data: each track is {bpm, div
+    (steps/beat), steps, parts:[{voice, vol, durBeats, seq}]}. seq is a sparse
+    per-step row (helper row(len,[[step,val],...])); a cell is a note name
+    ('A4','Bb2'), a chord (array of names), a number (block pitch), or null.
+    noteFreq() converts note names -> Hz. A lookahead scheduler (_scheduler,
+    25ms setInterval, 0.25s window) schedules each step via _playNote, which
+    dispatches to pluck/bow/reed/piano/block etc. Three tracks ship:
+    "Overture in Amber" (Am-F-C-G), "Clarinet Nocturne" (Dm-Bb-F-C),
+    "Pizzicato Pavane" (C-G-Am-F).
+  - MUSIC BUS (audio.js): new musicGain node parallel to sfxGain. A transient
+    this._route field, set only around a synth voice call, makes the three
+    output primitives (osc/noise/piano) connect to musicGain instead of
+    sfxGain — so the synth music rides the Music Volume slider independently
+    of SFX, reusing the SAME voice code. setMusicVol drives both musicEl and
+    musicGain.
+  - PER-CHARACTER STINGERS (audio.js stinger(type)): a short signature phrase
+    per musician on its own voice (P pizz triad, N bowed fifth, B reed turn,
+    R timpani+snare flam+cymbal, Q rolled piano arpeggio, K brass call).
+    Played on piece selection (select() now delegates to stinger()) AND as the
+    battle prelude (main.js runBattle calls Audio.stinger(attacker.t)).
+  - SOUNDTRACK OPTIONS (ui.js + index.html): Options gains a Music on/off seg
+    (#seg-music) and a Soundtrack track selector (#seg-track, Amber/Nocturne/
+    Pavane); both persist in mg_prefs (settings.musicOn / settings.track).
+    Toggling on or switching track live-previews. startGame plays the board
+    music; quitToMenu stops it.
+  - BRING-YOUR-OWN MUSIC kept and improved: a Clear button (#btn-clear-music)
+    stops playback, nulls musicEl, revokes the object URL, and resets the
+    filename label, reverting to the bundled track. A loaded user file still
+    overrides the synth track while present. Engine API: startBoardMusic/
+    stopBoardMusic (playMusic/stopMusic kept as aliases), loadMusicFile/
+    clearMusicFile, setMusicOn/setMusicTrack.
+
+WHAT THIS IS
+  Battle Chess–style game, orchestra theme. HTML5/Canvas, zero dependencies,
+  runs by opening index.html. Name: "Maestro's Gambit". Teams: Ivory
+  Philharmonic (white) vs Obsidian Philharmonic (black).
+  Pieces: P=Violinist N=Cellist B=Clarinetist R=Percussionist Q=Pianist
+  K=Conductor.
+
+V1.2 CHANGES (all verified: 26/26 tests, soak 88/88, headless screenshots)
+  - CHOREOGRAPHY VARIETY (battle.js): the 36 primary duels in CHOREO are now
+    each backed by extra takes in a parallel ALT table. pickChoreo(key) chooses
+    one at random per battle (pickChoreo(key, idx) forces a specific take, used
+    by soak/debug). P>P, P>N, N>P, B>P have 3 takes each; every other matchup
+    has 2. The original 36 are untouched (take #0); ALT only adds. 76 duel
+    sequences in all. allSeqs(key) = [CHOREO[key], ...ALT[key]].
+  - SET-PIECE SCENES (battle.js): BattleScene gained scene entry points beyond
+    the attacker/defender duel, each sharing _setupScene() + compile():
+      startCastle(color, side)  conductor & percussionist cross + high-five
+                                (2 takes; CASTLE pool)
+      startStar(color, promo)   "A Star Is Born" — the Violinist morphs into
+                                its promoted chair; distinct flourish per
+                                Q/R/B/N (starSteps(); STAR_FINISH/STAR_LINE).
+                                A.type is reassigned mid-scene at the morph beat.
+      startEnd(kind)            stalemate/draw tableau — the two maestros meet,
+                                no victor (2 takes each; STALEMATE / DRAW pools)
+    En passant reuses start() with opts.enpassant (EN_PASSANT pool, 2 takes).
+    compile() skips the death-stardust when opts.noVanish (castle/star/end) and
+    honors opts.endPad for the tableau hold.
+  - ELABORATE CHECKMATE FINALE (battle.js): curtainCall() now delegates to
+    grandFinale(), one of three random sends-off (curtain+crash / bouquet-note
+    rain / spotlight bow), all ending on the held curtain. The six *>K duels
+    each gained a 2nd take ending on the FINALE() beat.
+  - PIPELINE WIRING (main.js): runBattle was split into enterBattle()+
+    sceneDone() with sibling runEnPassant/runCastle/runStar/runEndScene.
+    executeMove routes ep captures to runEnPassant and castling moves to
+    runCastle (after the board move animates). afterMove was split: promotion
+    plays runStar before afterMoveResolve(); stalemate/draw go through
+    endWithScene() (scene then endGame). All scenes respect the Battles toggle
+    and are skippable (click/Esc), exactly like duels.
+
+V1.1 CHANGES (all verified: 26/26 tests, soak 36/36, headless screenshots)
+  - Battle-end glitch FIXED (battle.js): the end-of-timeline fade is now
+    anchored to its *scheduled* time (was the drifted tNow, so onDone could
+    fire before full black); draw() holds solid black once doneFired/!active;
+    this.fading is reset in start() (was stale across battles); later() now
+    inserts in order without re-sorting the whole event queue (a mid-playback
+    sort could shift entries relative to evIdx).
+  - Checkmate finales hold the closed curtain + applause ~2.7s before fading
+    (compile() pads end events when opts.checkmate; fx.js curtain() now takes
+    (closeDur, hold) and persists closed instead of expiring).
+  - CAMERA VIEWS (board.js): three swappable projections — 'iso' (classic),
+    'rot' (Obsidian's corner, 180°), 'table' (across the table: straight-on
+    perspective, per-row sprite scale via sqScale(), rows foreshortened).
+    rc2xy() accepts fractional r/c; tiles & plinth are drawn from projected
+    corners; squareAt() inverts each view; sprite mirroring flips in 'rot'
+    (flip()). HUD "View" button cycles; pref persists (settings.view).
+    NO continuous rotation — sprites only face left/right (by design).
+  - Quit-to-menu now confirms via #confirm-dialog (MG.UI.askConfirm promise);
+    no prompt when game is over.
+  - Window resize mid-battle re-layouts the stage (BattleScene.relayout(),
+    called from App.resize()).
+
+STATUS: COMPLETE & VERIFIED v1.1
+  - Chess engine: full rules (castle/ep/promo/all draws). 26 unit tests pass,
+    perft(4)=197281 exact. Run: node tests/test_chess.js
+  - AI: negamax+alpha-beta+quiescence (fail-soft — important, a fail-hard
+    quiescence bug was fixed where narrowed root windows returned beta as
+    exact and tied with mate scores). 3 levels in js/ai.js DIFFS table:
+    Student(d2+jitter+blunders) / Performer(d3) / Virtuoso(d4, ~600ms/move).
+  - 76 battle choreographies in js/battle.js: 36 primary (CHOREO) + 40 alts
+    (ALT), keyed 'X>Y' (attacker>defender), chosen at random per battle.
+    '*>K' entries are the checkmate finales (grandFinale: curtain + applause +
+    confetti, 3 random variants). Fallback chain exists for safety. Plus the
+    set-piece scenes: castling (2), en passant (2), promotion (4, one per
+    promote type), stalemate (2), draw (2) — 88 sequences total, all soaked.
+  - Sprites are 100% procedural pixel art: js/sprites.js. Each character is
+    a parametric rig (POSES[type][action](k,t,P) mutates a pose; painters
+    draw to a 110x110 lowres buffer upscaled with smoothing off).
+    Actions: idle walk ride windup strike special hit dodge block taunt
+    die dead win cheer.
+  - SFX all synthesized in js/audio.js (no samples). User loads own music
+    file via Options (plays looped; cannot persist across sessions because
+    browsers can't re-read local files — a bundled-soundtrack build would).
+  - Menus/HUD/promotion/game-over all DOM (index.html + css/style.css).
+  - Modes: vs CPU (3 levels, pick side or coin toss), 2P local, and 2P online
+    (room-code relay; see V1.5 CHANGES + server/relay/). Battles toggleable
+    in-game (per-player when online); Esc/click skips a battle; speed setting
+    Normal/Brisk/Presto; prefs persist (localStorage key 'mg_prefs', now incl.
+    settings.relayUrl).
+
+VERIFICATION DONE
+  - node --check on all js files.
+  - tests/test_chess.js: 26/26.
+  - Headless-Chrome screenshots in shots/ (title, board, several battles,
+    piano-drop finisher, drum-off, checkmate curtain, promo dialog,
+    game-over card, full capture pipeline). Headless rAF runs much slower
+    than virtual-time timers; use the ff= and warp= URL params (see below)
+    rather than huge --virtual-time-budget values.
+
+DEV HOOKS (js/main.js debugHook — strip for release)
+  ?shot=board (&view=rot|table for other cameras)
+  ?shot=battle&att=Q&def=K&mate=1&ff=SECONDS  (&alt=N picks a specific take)
+  ?shot=castle&c=w|b&alt=N  | ?shot=ep&alt=N  (en passant)
+  ?shot=star&c=w|b&promo=Q|R|B|N  | ?shot=end&kind=stalemate|draw&alt=N
+  ?shot=capture | ?shot=mate (scripted games) | ?shot=promo | ?shot=gameover
+  ?shot=soak — runs EVERY choreography take AND every set-piece scene to
+    completion, logs "SOAK DONE 88/88" to console (use --enable-logging=
+    stderr). Run after ANY change to sprites.js/battle.js/fx.js. Counts come
+    from MG.battleVariantCount / MG.EP_COUNT / CASTLE_COUNT / STALEMATE_COUNT /
+    DRAW_COUNT, so adding takes auto-updates the soak total. Verified 88/88.
+  &warp=N multiplies dt. Screenshot recipe:
+  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless
+    --disable-gpu --window-size=1280,800 --hide-scrollbars
+    --virtual-time-budget=8000 --screenshot=out.png
+    "file://$PWD/index.html?shot=battle&att=R&def=R&ff=4"
+
+KNOWN MINOR ITEMS / POLISH BACKLOG (none blocking)
+  - No hint button, no PGN export.
+  - Title wordmark uses system Georgia; a custom (licensed/original) display
+    font would elevate it.
+  - AI Virtuoso could gain an opening book + transposition table.
+
+IDEAS IF CONTINUING
+  - NEXT UP: bundled original synthesized soundtrack — audio.js can already
+    synthesize everything, and bundling it removes the "music doesn't persist"
+    caveat. Matters most once packaging for a storefront. Add per-scene
+    stingers (capture / castle / promotion / checkmate / draw) while at it.
+  - Online play, save/load games, PGN import/export, achievements.
+  - Desktop packaging via Tauri/Electron for storefronts (project is
+    file://-safe already: no modules, no fetch, all procedural assets).
+  - DONE in v1.2: choreo variety (2-3 takes/matchup), castling mini-scene,
+    en passant scene, "A Star Is Born" promotion, elaborate checkmate finale,
+    stalemate/draw tableaux.
+
+ARCHITECTURE CHEAT SHEET
+  Namespace: globalThis.MG. Script order matters (see index.html).
+  main.js App: state machine 'menu'|'board'|'battle', move pipeline:
+    executeMove -> snapshot -> game.move -> board.beginMoveAnim
+    -> onArrive -> (battle if capture & enabled) -> afterMove
+    -> status checks (mate => optional finale battle => endGame)
+    -> cpuMove if needed.
+  Board is authoritative immediately (engine state applied before anim);
+  board view renders from a snapshot during animation.
+  Captured trays tracked in App.capturedByWhite/Black (undo-aware).

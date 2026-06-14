@@ -1,0 +1,18 @@
+{
+  "name": "maestros-gambit-relay",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Small hardened WebSocket relay for Maestro's Gambit public room-code testing.",
+  "main": "relay_server.js",
+  "scripts": {
+    "start": "node relay_server.js",
+    "smoke": "node relay_smoke.js",
+    "smoke:remote": "node relay_remote_smoke.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "ws": "^8.17.1"
+  }
+}

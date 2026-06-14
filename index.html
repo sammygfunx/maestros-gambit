@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0c0710">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Maestro's Gambit — A Symphonic Battle of Wits</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="app">
+    <canvas id="game-canvas"></canvas>
+
+    <!-- ====== TITLE SCREEN ====== -->
+    <div id="screen-title" class="screen">
+      <div class="title-block">
+        <div class="title-clef">𝄞</div>
+        <h1 class="game-title">MAESTRO'S<br>GAMBIT</h1>
+        <div class="title-rule"><span>♩ ♪ ♫</span></div>
+        <p class="tagline">A Symphonic Battle of Wits</p>
+      </div>
+      <div class="menu-buttons">
+        <button class="btn btn-big" id="btn-play">Take the Stage</button>
+        <button class="btn" id="btn-howto">How to Play</button>
+        <button class="btn" id="btn-options">Options</button>
+        <button class="btn" id="btn-credits">Credits</button>
+      </div>
+      <p class="footer-note">Click anywhere to enable sound &nbsp;·&nbsp; v1.0</p>
+    </div>
+
+    <!-- ====== GAME SETUP SCREEN ====== -->
+    <div id="screen-setup" class="screen hidden">
+      <h2 class="screen-title">Arrange the Performance</h2>
+
+      <div class="setup-group">
+        <div class="setup-label">Mode</div>
+        <div class="seg" id="seg-mode">
+          <button class="seg-btn sel" data-v="cpu">Solo Recital <small>vs Computer</small></button>
+          <button class="seg-btn" data-v="2p">Duet <small>2 Players, Local</small></button>
+          <button class="seg-btn" data-v="online">Online Duel <small>2 Players, Remote</small></button>
+        </div>
+      </div>
+
+      <div class="setup-group" id="grp-difficulty">
+        <div class="setup-label">Difficulty</div>
+        <div class="seg" id="seg-diff">
+          <button class="seg-btn" data-v="0">Student <small>relaxed</small></button>
+          <button class="seg-btn sel" data-v="1">Performer <small>balanced</small></button>
+          <button class="seg-btn" data-v="2">Virtuoso <small>punishing</small></button>
+        </div>
+      </div>
+
+      <div class="setup-group" id="grp-side">
+        <div class="setup-label">Your Ensemble</div>
+        <div class="seg" id="seg-side">
+          <button class="seg-btn sel" data-v="w">Ivory <small>moves first</small></button>
+          <button class="seg-btn" data-v="b">Obsidian</button>
+          <button class="seg-btn" data-v="r">Coin Toss</button>
+        </div>
+      </div>
+
+      <div class="setup-group">
+        <div class="setup-label">Battle Scenes</div>
+        <div class="seg" id="seg-battles">
+          <button class="seg-btn sel" data-v="on">Full Performance</button>
+          <button class="seg-btn" data-v="off">Quick Captures</button>
+        </div>
+      </div>
+
+      <div class="menu-buttons row">
+        <button class="btn" id="btn-setup-back">Back</button>
+        <button class="btn btn-big" id="btn-start">Begin the Overture</button>
+      </div>
+    </div>
+
+    <!-- ====== OPTIONS SCREEN ====== -->
+    <div id="screen-options" class="screen hidden">
+      <h2 class="screen-title">Options</h2>
+      <div class="opt-row">
+        <label>Sound Effects</label>
+        <input type="range" id="opt-sfx" min="0" max="100" value="80">
+        <span class="opt-val" id="opt-sfx-val">80</span>
+      </div>
+      <div class="opt-row">
+        <label>Music Volume</label>
+        <input type="range" id="opt-music" min="0" max="100" value="60">
+        <span class="opt-val" id="opt-music-val">60</span>
+      </div>
+      <div class="opt-row">
+        <label>Music</label>
+        <div class="seg seg-small" id="seg-music">
+          <button class="seg-btn sel" data-v="on">On</button>
+          <button class="seg-btn" data-v="off">Off</button>
+        </div>
+      </div>
+      <div class="opt-row">
+        <label>Soundtrack</label>
+        <div class="seg seg-small" id="seg-track">
+          <button class="seg-btn sel" data-v="0">Amber <small>overture</small></button>
+          <button class="seg-btn" data-v="1">Nocturne <small>clarinet</small></button>
+          <button class="seg-btn" data-v="2">Pavane <small>pizzicato</small></button>
+        </div>
+      </div>
+      <div class="opt-row">
+        <label>Your Music</label>
+        <button class="btn btn-small" id="btn-load-music">Load Audio File…</button>
+        <button class="btn btn-small" id="btn-clear-music">Clear</button>
+        <span class="opt-val" id="music-name">none</span>
+        <input type="file" id="music-file" accept="audio/*" style="display:none">
+      </div>
+      <div class="opt-row">
+        <label>Animation Speed</label>
+        <div class="seg seg-small" id="seg-speed">
+          <button class="seg-btn sel" data-v="1">Normal</button>
+          <button class="seg-btn" data-v="1.6">Brisk</button>
+          <button class="seg-btn" data-v="2.4">Presto</button>
+        </div>
+      </div>
+      <p class="hint-text">Tip: a bundled synth soundtrack loops during games — pick a track above.
+      Load your own audio file to override it, or Clear to return to the bundled set.<br>
+      During a battle scene, click or press Esc to skip ahead.</p>
+      <div class="menu-buttons">
+        <button class="btn" id="btn-options-back">Back</button>
+      </div>
+    </div>
+
+    <!-- ====== HOW TO PLAY ====== -->
+    <div id="screen-howto" class="screen hidden">
+      <h2 class="screen-title">How to Play</h2>
+      <div class="howto-body">
+        <p><b>Maestro's Gambit</b> is classical chess performed by two rival orchestras.
+        Standard chess rules apply — castling, en passant, promotion, the lot.</p>
+        <table class="roster">
+          <tr><td class="r-piece">Violinist</td><td class="r-role">Pawn</td><td>Nimble section player. Reaches the far end of the stage and earns a promotion.</td></tr>
+          <tr><td class="r-piece">Cellist</td><td class="r-role">Knight</td><td>Rides the cello in sweeping L-shaped glissandos, leaping over the section.</td></tr>
+          <tr><td class="r-piece">Clarinetist</td><td class="r-role">Bishop</td><td>Glides along the diagonals with piercing runs.</td></tr>
+          <tr><td class="r-piece">Percussionist</td><td class="r-role">Rook</td><td>A one-man battery. Thunders straight down ranks and files.</td></tr>
+          <tr><td class="r-piece">Pianist</td><td class="r-role">Queen</td><td>The virtuoso. Strikes in any direction — and travels with the piano.</td></tr>
+          <tr><td class="r-piece">Conductor</td><td class="r-role">King</td><td>Loses the conductor and the concert is over. Protect the podium.</td></tr>
+        </table>
+        <p>Click a musician to see their legal moves, then click a highlighted square.
+        Capturing triggers an on-stage duel. Outcomes are decided by the rules of chess —
+        the show is purely for the audience.</p>
+        <p><b>Play a friend online:</b> on the setup screen choose <i>Online Duel</i>, then
+        <i>Host a Match</i> to get a room code (send it to your friend) or <i>Join</i> with a
+        code they sent you. The match begins the moment they connect — no accounts, no setup.
+        Battle scenes stay a personal preference, so each of you can toggle them freely.</p>
+      </div>
+      <div class="menu-buttons">
+        <button class="btn" id="btn-howto-back">Back</button>
+      </div>
+    </div>
+
+    <!-- ====== CREDITS ====== -->
+    <div id="screen-credits" class="screen hidden">
+      <h2 class="screen-title">Credits</h2>
+      <div class="howto-body credits-body">
+        <p><b>Maestro's Gambit</b></p>
+        <p>An original work. All characters, artwork, animation and sound effects
+        were created for this game and are procedurally generated — no third-party
+        assets are used.</p>
+        <p>Chess engine, pixel orchestra, choreography &amp; synthesized foley:<br>
+        <i>the Maestro's Gambit ensemble</i>.</p>
+        <p>Bring your own soundtrack via Options → Your Music.</p>
+      </div>
+      <div class="menu-buttons">
+        <button class="btn" id="btn-credits-back">Back</button>
+      </div>
+    </div>
+
+    <!-- ====== ONLINE LOBBY ====== -->
+    <div id="screen-online" class="screen hidden">
+      <h2 class="screen-title">Online Duel</h2>
+      <p class="online-status" id="online-status">Host a match and share the code, or join with a code your opponent sent.</p>
+
+      <div class="online-grid">
+        <div class="online-card">
+          <div class="oc-title">Host a Match</div>
+          <p class="oc-sub">Create a room and send the code to your opponent.</p>
+          <button class="btn btn-big" id="btn-host">Host a Match</button>
+          <div class="room-code hidden" id="room-code-box">
+            <div class="rc-label">Room Code</div>
+            <div class="rc-code" id="room-code">—</div>
+            <button class="btn btn-small" id="btn-copy-code">Copy Code</button>
+          </div>
+        </div>
+
+        <div class="online-or">or</div>
+
+        <div class="online-card">
+          <div class="oc-title">Join a Match</div>
+          <p class="oc-sub">Enter the 5-letter code your opponent sent you.</p>
+          <input id="join-code" class="code-input" maxlength="5" autocomplete="off"
+                 autocapitalize="characters" autocorrect="off" spellcheck="false" placeholder="ABCDE">
+          <button class="btn btn-big" id="btn-join">Join</button>
+        </div>
+      </div>
+
+      <details class="server-settings" id="server-settings">
+        <summary>Server settings</summary>
+        <div class="opt-row">
+          <label>Relay URL</label>
+          <input id="relay-url" class="relay-input" autocomplete="off" autocorrect="off"
+                 spellcheck="false" placeholder="wss://your-relay.onrender.com/">
+        </div>
+        <p class="hint-text">Both players must point at the same relay. It is free to run —
+          deploy <code>server/relay</code> to Render (see its README), or leave this blank
+          if a default relay is already built in.</p>
+      </details>
+
+      <div class="menu-buttons">
+        <button class="btn" id="btn-online-back">Back</button>
+      </div>
+    </div>
+
+    <!-- ====== IN-GAME HUD ====== -->
+    <div id="hud" class="hidden">
+      <div id="hud-top">
+        <div class="hud-name" id="hud-black-name">Obsidian</div>
+        <div id="hud-turn-banner">Ivory to move</div>
+        <div class="hud-name" id="hud-white-name">Ivory</div>
+      </div>
+      <div id="hud-side">
+        <div class="cap-row" id="cap-black"></div>
+        <div id="move-list"></div>
+        <div class="cap-row" id="cap-white"></div>
+        <div class="hud-buttons">
+          <button class="btn btn-small" id="btn-undo" title="Take back a move">Undo</button>
+          <button class="btn btn-small" id="btn-toggle-battles" title="Toggle battle scenes">Battles: On</button>
+          <button class="btn btn-small" id="btn-view" title="Cycle camera view">View: Ivory</button>
+          <button class="btn btn-small" id="btn-resign">Resign</button>
+          <button class="btn btn-small" id="btn-quit">Menu</button>
+        </div>
+      </div>
+      <div id="thinking" class="hidden"><span class="metronome">𝅘𝅥</span> The maestro deliberates…</div>
+    </div>
+
+    <!-- ====== PROMOTION DIALOG ====== -->
+    <div id="promo-dialog" class="modal hidden">
+      <div class="modal-card">
+        <h3>A Star Is Born</h3>
+        <p>Your violinist has reached the edge of the stage.<br>Choose their new chair:</p>
+        <div class="promo-choices">
+          <button class="promo-btn" data-p="Q"><canvas width="96" height="120"></canvas><span>Pianist</span></button>
+          <button class="promo-btn" data-p="R"><canvas width="96" height="120"></canvas><span>Percussionist</span></button>
+          <button class="promo-btn" data-p="B"><canvas width="96" height="120"></canvas><span>Clarinetist</span></button>
+          <button class="promo-btn" data-p="N"><canvas width="96" height="120"></canvas><span>Cellist</span></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== CONFIRM DIALOG ====== -->
+    <div id="confirm-dialog" class="modal hidden">
+      <div class="modal-card">
+        <h3 id="cf-title">Are you sure?</h3>
+        <p id="cf-sub"></p>
+        <div class="menu-buttons row">
+          <button class="btn" id="btn-cf-no">No</button>
+          <button class="btn btn-big" id="btn-cf-yes">Yes</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== GAME OVER ====== -->
+    <div id="screen-gameover" class="modal hidden">
+      <div class="modal-card">
+        <h3 id="go-title">Checkmate</h3>
+        <p id="go-sub">The Ivory Philharmonic takes the final bow.</p>
+        <div class="menu-buttons row">
+          <button class="btn" id="btn-go-menu">Main Menu</button>
+          <button class="btn btn-big" id="btn-go-rematch">Encore (Rematch)</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="err-overlay" class="hidden"></div>
+  </div>
+
+<script src="js/audio.js"></script>
+<script src="js/sprites.js"></script>
+<script src="js/chess.js"></script>
+<script src="js/ai.js"></script>
+<script src="js/fx.js"></script>
+<script src="js/battle.js"></script>
+<script src="js/board.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/net.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

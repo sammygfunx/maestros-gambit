@@ -1,0 +1,25 @@
+COPY/PASTE THIS TO CONTINUE WORK ON MAESTRO'S GAMBIT IN A NEW THREAD
+---------------------------------------------------------------------
+
+I'm continuing work on "Maestro's Gambit", a finished v1.0 Battle Chess–style
+HTML5 game in this directory. Before doing anything, read PROJECT_STATE.txt
+(current status, architecture cheat sheet, verification recipes, backlog) and
+skim README.md. Do NOT rebuild or restructure anything that works.
+
+Key facts so you don't need to rediscover them:
+- Pure HTML/JS/Canvas, no build step, no dependencies; open index.html to play.
+  All art/sound is procedural (sprites.js / audio.js). Namespace globalThis.MG,
+  plain <script> tags in dependency order (see index.html).
+- Chess rules engine (js/chess.js) is unit-tested: run `node tests/test_chess.js`
+  (26 assertions incl. perft(4)). Always re-run after touching chess.js/ai.js.
+- 36 battle choreographies live in js/battle.js CHOREO ('attacker>defender' keys).
+- Verify visuals headlessly with Chrome screenshots using the URL hooks in
+  js/main.js debugHook (?shot=battle&att=Q&def=K&ff=5 etc.) — full recipe in
+  PROJECT_STATE.txt. Headless rAF is slow; use ff=/warp= params, not huge
+  virtual-time budgets.
+- Theme/copyright rule: everything must stay original (no Battle Chess text or
+  assets, no third-party fonts/samples) because commercial release is intended.
+
+My request for this session:
+[ DESCRIBE WHAT YOU WANT CHANGED/ADDED HERE — see the "polish backlog" and
+  "ideas" sections of PROJECT_STATE.txt for candidates ]

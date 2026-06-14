@@ -1,0 +1,14 @@
+# Node dependencies — relay runs `npm ci` on deploy (Render)
+server/relay/node_modules/
+
+# Generated test screenshots — regenerate with ?shot= dev hooks
+shots/
+
+# macOS resource forks / metadata
+.DS_Store
+**/.DS_Store
+._*
+**/._*
+
+# Claude Code local project settings
+.claude/
