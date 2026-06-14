@@ -25,7 +25,7 @@ on both machines (same LAN), Host on one, Join on the other.
 
 This is the easiest way to play with a friend on a different network.
 
-1. Push this repo (or just the `server/relay` folder) to GitHub.
+1. The repo is already on GitHub at <https://github.com/sammygfunx/maestros-gambit>.
 2. On <https://render.com>, create a **Web Service** from the repo.
 3. **Root Directory:** `server/relay`
 4. **Runtime:** Node · **Build:** `npm ci --omit=dev` · **Start:** `node relay_server.js`

@@ -27,6 +27,8 @@ violinist transforms into whichever chair you choose; and **checkmate**, **stale
 and a **draw** each have their own elaborate finale (the checkmate send-off picks one of
 three curtain-calls at random).
 
+**Repository:** https://github.com/sammygfunx/maestros-gambit
+
 ## Run it
 Open **`index.html`** in any modern browser (Chrome, Edge, Firefox, Safari).
 No build step, no server, no dependencies — everything (art, animation, sound)
@@ -105,7 +107,7 @@ js/main.js        game controller / state machine / render loop
 server/relay/     standalone Node WebSocket relay for Online Duel + its README
 tests/            node tests/test_chess.js (26 assertions incl. perft)
                   node tests/test_net.js   (two clients play through the relay)
-shots/            reference screenshots taken during development
+shots/            reference screenshots taken during development (not in repo; regenerate with ?shot=)
 ```
 
 ## Dev/test hooks (URL params)
