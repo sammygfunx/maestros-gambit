@@ -37,10 +37,17 @@ is generated procedurally at runtime.
 ## Features
 - Full chess rules: castling, en passant, promotion, check/checkmate, stalemate,
   fifty-move rule, threefold repetition, insufficient material.
-- **Solo Recital** vs computer at three levels (Student / Performer / Virtuoso),
-  playing either ensemble; **Duet** — two players at one computer; or
-  **Online Duel** — two players on different machines, paired by a short room
-  code (see *Play online* below).
+- **Solo Recital** vs a roster of ten named, orchestra-themed CPU personas on a
+  **rated ladder** from ~820 to ~2010 Elo, grouped by class band (Novice, Class
+  E…Class A, Expert) in a card picker. Weaker conductors play genuinely weakly —
+  shallow search plus a chance to blunder and noisy evaluation, so a novice really
+  does hang pieces — and each carries a fixed rating that feeds your own. (The
+  ladder honestly tops out near 2000, the engine's ceiling.) Plus **Duet** — two
+  players at one computer — or **Online Duel** — two players on different machines,
+  paired by a short room code (see *Play online* below).
+- **Banter** — each persona has a few short, PG, orchestra-flavoured lines: a taunt
+  pops up when the CPU snatches your queen or rook, and a send-off appears on the
+  game-over card. Toggle it in Options (*Banter: On/Off*).
 - Animated walk/leap moves on an isometric stage-board; full-screen battle scenes
   for every capture and a checkmate finale (skippable — click or press Esc;
   or switch to "Quick Captures" entirely).
@@ -65,8 +72,8 @@ is generated procedurally at runtime.
   button removes it and returns to the bundled set.
 - **Player profiles & chess ratings** — create a named profile (saved on your
   device) and your rating updates after every game against the computer. Each AI
-  level is a fixed opponent (Student ≈ 1000, Performer ≈ 1500, Virtuoso ≈ 2000),
-  so your number converges sensibly; online games count on the honour system, and
+  persona is a fixed-rating opponent (≈820 up to ≈2010, see the ladder above), so
+  your number converges sensibly; online games count on the honour system, and
   local two-player games never affect a rating. Pick the rating model in Options —
   **Elo** (the classic, default) or **Glicko-2** (the chess.com/Lichess style) —
   with USCF/ECF figures shown as estimates. Or choose **Guest** to play untracked.
@@ -113,7 +120,8 @@ css/style.css     menus/HUD styling
 js/audio.js       WebAudio synth engine: SFX, stingers & bundled soundtrack
 js/facts.js       100 "did you know?" orchestral facts for the connecting screen
 js/chess.js       rules engine (no rendering; unit-tested)
-js/ai.js          negamax + quiescence AI, 3 difficulty levels
+js/ai.js          negamax + quiescence AI driven by a strength profile
+js/opponents.js   the rated CPU persona ladder (MG.Opponents) + their banter lines
 js/sprites.js     procedural pixel-art characters, rigs & poses
 js/fx.js          particles: notes, rings, lightning, piano-drop, curtain
 js/battle.js      battle stage + the 36-duel choreography book
@@ -137,6 +145,7 @@ shots/            reference screenshots taken during development (not in repo; r
 `?shot=capture` / `?shot=mate` (scripted games) · `?shot=promo` · `?shot=gameover`
 `?shot=soak` runs every choreography take and set-piece scene to completion (logs
 `SOAK DONE 88/88`). `?screen=online` opens the online lobby directly;
-`?screen=profiles` opens the player-profiles screen. `&warp=N`
+`?screen=profiles` opens the player-profiles screen; `?screen=setup` opens the
+setup screen (handy for the opponent picker). `&warp=N`
 multiplies game speed. Remove `debugHook()` in `main.js` to strip these from a
 release build.

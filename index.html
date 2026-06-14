@@ -57,12 +57,8 @@
       </div>
 
       <div class="setup-group" id="grp-difficulty">
-        <div class="setup-label">Difficulty</div>
-        <div class="seg" id="seg-diff">
-          <button class="seg-btn" data-v="0">Student <small>relaxed</small></button>
-          <button class="seg-btn sel" data-v="1">Performer <small>balanced</small></button>
-          <button class="seg-btn" data-v="2">Virtuoso <small>punishing</small></button>
-        </div>
+        <div class="setup-label">Opponent</div>
+        <div class="opp-picker" id="opp-picker"><!-- filled by ui.js from MG.Opponents --></div>
       </div>
 
       <div class="setup-group" id="grp-side">
@@ -136,6 +132,13 @@
         <div class="seg seg-small" id="seg-clock">
           <button class="seg-btn sel" data-v="countdown">Count Down <small>time limit</small></button>
           <button class="seg-btn" data-v="countup">Count Up <small>total time</small></button>
+        </div>
+      </div>
+      <div class="opt-row">
+        <label>Banter</label>
+        <div class="seg seg-small" id="seg-banter">
+          <button class="seg-btn sel" data-v="on">On <small>trash talk</small></button>
+          <button class="seg-btn" data-v="off">Off <small>silence</small></button>
         </div>
       </div>
       <div class="opt-row">
@@ -305,6 +308,12 @@
       <div id="thinking" class="hidden"><span class="metronome">𝅘𝅥</span> The maestro deliberates…</div>
     </div>
 
+    <!-- ====== BANTER TOAST (CPU persona speech bubble) ====== -->
+    <div id="banter-toast" class="hidden">
+      <span class="bt-who" id="banter-who"></span>
+      <span class="bt-line" id="banter-line"></span>
+    </div>
+
     <!-- ====== PROMOTION DIALOG ====== -->
     <div id="promo-dialog" class="modal hidden">
       <div class="modal-card">
@@ -336,6 +345,7 @@
       <div class="modal-card">
         <h3 id="go-title">Checkmate</h3>
         <p id="go-sub">The Ivory Philharmonic takes the final bow.</p>
+        <p id="go-banter" class="go-banter hidden"></p>
         <p id="go-rating" class="go-rating hidden"></p>
         <div class="menu-buttons row">
           <button class="btn" id="btn-go-menu">Main Menu</button>
@@ -357,6 +367,7 @@
 <script src="js/board.js"></script>
 <script src="js/rating.js"></script>
 <script src="js/profiles.js"></script>
+<script src="js/opponents.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/net.js"></script>
 <script src="js/main.js"></script>

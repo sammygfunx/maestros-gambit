@@ -18,7 +18,7 @@
     game: null,
     board: null,
     battle: null,
-    session: null,          // {mode, level, humanColor, battles, hostColor}
+    session: null,          // {mode, opponent, aiProfile, humanColor, battles, hostColor}
     busy: false,            // an animation/battle/AI is in flight
     over: false,
     remoteQueue: [],        // online: opponent moves awaiting a free moment
@@ -107,6 +107,7 @@
       const screen = q.get('screen');
       if (screen === 'online') { MG.UI.setup.mode = 'online'; MG.UI.openLobby(); return; }
       if (screen === 'profiles') { MG.UI.openProfiles(); return; }
+      if (screen === 'setup') { MG.UI.show('screen-setup'); return; }
       const shot = q.get('shot');
       if (!shot) return;
       MG.Audio.enabled = false;
@@ -308,9 +309,13 @@
 
     /* ============== session lifecycle ============== */
     startGame(setup) {
+      // the CPU opponent is one of the rated personas (js/opponents.js); other
+      // modes don't use one. aiProfile is what MG.AI searches with.
+      const persona = setup.mode === 'cpu' ? MG.Opponents.get(setup.opponent) : null;
       const session = {
         mode: setup.mode,
-        level: setup.diff,
+        opponent: persona,
+        aiProfile: persona || 1,           // fallback profile (unused off-CPU)
         battles: setup.battles === 'on',
         humanColor: setup.mode === '2p' ? null
           : setup.mode === 'online' ? setup.onlineColor
@@ -339,7 +344,8 @@
       const youTag = (c) => {
         if (session.mode === '2p') return '';
         if (session.mode === 'online') return session.humanColor === c ? ' (You)' : ' (Opponent)';
-        return session.humanColor === c ? ' (You)' : ' (Maestro CPU)';
+        if (session.humanColor === c) return ' (You)';
+        return persona ? ` (${persona.name})` : ' (Maestro CPU)';
       };
       MG.UI.setNames('Ivory Philharmonic' + youTag('w'), 'Obsidian Philharmonic' + youTag('b'));
       // takebacks need both players' consent, so Undo is hidden in online play
@@ -352,6 +358,7 @@
       MG.UI.updateMoveList([]);
       MG.UI.updateCaptured([], []);
       MG.UI.setTurn('w', false);
+      MG.UI.hideBanter();
       MG.UI.showGame();
       MG.UI.setHudProfile();   // show the active profile's rating (hidden for Guest)
       MG.Audio.resume();
@@ -371,7 +378,7 @@
       }
       this.startGame({
         mode: this.session.mode,
-        diff: this.session.level,
+        opponent: this.session.opponent ? this.session.opponent.id : undefined,
         battles: this.session.battles ? 'on' : 'off',
         side: this.session.humanColor || 'w',
       });
@@ -385,6 +392,7 @@
         this.remoteQueue = [];
         MG.Net.leave(); // closing the socket lets the opponent know we left
         MG.Audio.stopBoardMusic();
+        MG.UI.hideBanter();
         MG.UI.show('screen-title');
       };
       if (this.session && !this.over) {
@@ -431,7 +439,6 @@
       this.remoteQueue = [];
       this.startGame({
         mode: 'online',
-        diff: 1,
         battles: MG.UI.setup.battles,        // each player keeps their own preference
         side: myColor,
         onlineColor: myColor,
@@ -609,6 +616,28 @@
     recordCapture(byColor, type) {
       (byColor === 'w' ? this.capturedByWhite : this.capturedByBlack).push(type);
       MG.UI.updateCaptured(this.capturedByWhite, this.capturedByBlack);
+      this.maybeBanterCapture(byColor, type);
+    },
+
+    /* persona trash talk when the CPU snatches your queen or rook (Banter on) */
+    maybeBanterCapture(byColor, type) {
+      if (!this.session || this.session.mode !== 'cpu' || !MG.UI.settings.banter) return;
+      const persona = this.session.opponent;
+      if (!persona) return;
+      if (byColor === this.session.humanColor) return;   // only the CPU taunts
+      if (type !== 'Q' && type !== 'R') return;           // only the big pieces
+      MG.UI.showBanter(persona.name, persona.lines.bigCapture);
+    },
+
+    /* a one-line send-off from the persona on the game-over card (Banter on):
+       its `win` line if the CPU won, its gracious `lose` line if you did. */
+    cpuBanterForEnd(winner) {
+      if (!this.session || this.session.mode !== 'cpu' || !MG.UI.settings.banter) return null;
+      const persona = this.session.opponent;
+      if (!persona || winner == null) return null;        // draws stay quiet
+      const cpuWon = winner !== this.session.humanColor;
+      const line = cpuWon ? persona.lines.win : persona.lines.lose;
+      return line ? `“${line}” — ${persona.name}` : null;
     },
 
     /* enter the full-screen stage; sceneDone wraps onDone to restore the board */
@@ -724,7 +753,7 @@
     cpuMove() {
       this.busy = true;
       MG.UI.setThinking(true);
-      MG.AI.chooseMoveAsync(this.game, this.session.level, (m) => {
+      MG.AI.chooseMoveAsync(this.game, this.session.aiProfile, (m) => {
         MG.UI.setThinking(false);
         if (!m || this.over || !this.session) { this.busy = false; return; }
         this.busy = false;
@@ -774,7 +803,8 @@
         MG.Audio.drawCue();
       }
       const ratingHtml = this.applyRatingResult(winner);
-      setTimeout(() => MG.UI.showGameOver(title, sub, ratingHtml), 900);
+      const banterText = this.cpuBanterForEnd(winner);
+      setTimeout(() => MG.UI.showGameOver(title, sub, ratingHtml, banterText), 900);
     },
 
     /* Update the active profile's rating for this finished game and return a
@@ -791,9 +821,10 @@
       const score = winner == null ? 0.5 : (winner === human ? 1 : 0);
       let oppRating, label;
       if (this.session.mode === 'cpu') {
-        const ai = MG.Rating.AI_RATINGS;
-        oppRating = ai[this.session.level] != null ? ai[this.session.level] : 1500;
-        label = ['Student', 'Performer', 'Virtuoso'][this.session.level] || 'CPU';
+        // each persona is graded as a fixed-rating opponent (js/opponents.js)
+        const persona = this.session.opponent;
+        oppRating = persona ? persona.rating : 1500;
+        label = persona ? persona.name : 'CPU';
       } else {
         // online is honour-system: the opponent's rating is unknown, so grade
         // the game against an equal — a win/loss nudges, a draw is neutral.

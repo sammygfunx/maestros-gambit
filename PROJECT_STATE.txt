@@ -1,7 +1,11 @@
 MAESTRO'S GAMBIT — PROJECT STATE
-Last updated: 2026-06-14 (v1.7 — player profiles + chess rating system: Elo
-(default) & full Glicko-2, USCF/ECF estimates, localStorage profiles, profile
-picker + Options system selector, rating shown in HUD & game-over card)
+Last updated: 2026-06-14 (v1.8 — rated opponent ladder: the single CPU became a
+profile-driven AI + a roster of 10 named orchestra personas (~820–2010 Elo across
+the FIDE class bands), an opponent-card picker replacing the 3-level segment, and
+PG persona "banter" — capture taunts + game-over send-offs, Options toggle)
+Prior: v1.7 — player profiles + chess rating system: Elo (default) & full
+Glicko-2, USCF/ECF estimates, localStorage profiles, profile picker + Options
+system selector, rating shown in HUD & game-over card
 Prior: v1.6 — bundled relay URL + "connecting" flourish
 (animated label, predictable progress bar, 100 rotating orchestral facts);
 per-player seven-segment chess clocks (countdown + count-up)
@@ -15,6 +19,66 @@ Prior: v1.2 — choreography variety, castling/en-passant/promotion/stalemate/
 draw set-piece scenes, elaborate checkmate finale
 Prior: v1.1 — battle-end fix, curtain hold, camera views, quit confirm,
 mid-battle resize
+
+V1.8 CHANGES — RATED OPPONENT LADDER + PERSONAS + BANTER
+  (verified: chess 26/26; rating 20/20; node --check on every touched file; a
+  poisoned-capture sanity probe confirms the strength gradient — the two depth-1
+  personas hang a queen-to-recapture ~55% of the time, every depth-2+ persona 0%;
+  setup-screen + board headless screenshots clean; load = zero app console errors)
+  - AI IS NOW PROFILE-DRIVEN (js/ai.js): the hardcoded 3-row DIFFS table became a
+    normProfile() that accepts EITHER a persona profile object
+    {depth, blunder, noise, nodeCap?} OR a legacy numeric level (0/1/2, kept in a
+    small LEGACY table for back-compat). Strength is achieved by DELIBERATE
+    weakening, not a strong engine throwing games:
+      * depth   — plies of full-width search (1 = barely tactical).
+      * blunder — flat per-move chance to abandon the best move and play a RANDOM
+        other legal move (this is what makes weak personas hang pieces).
+      * noise   — eval jitter (the old "jitter") so non-blundering play feels human.
+      * quiescence is derived (depth >= 3), so shallow personas never see the
+        recapture and genuinely hang material; deep ones do and don't.
+    chooseMove/chooseMoveAsync now take `profile` (object or number); forced mate
+    is never randomised away (mate scores sit far outside the noise band).
+  - ROSTER (js/opponents.js, NEW — MG.Opponents): 10 named, orchestra-themed
+    conductor personas, weakest→strongest, each
+    { id, name, blurb, rating, klass, depth, blunder, noise, tint, lines{win,
+    bigCapture, lose} }. Ratings span the FIDE/USCF class bands via classOf():
+      Piccolo Pim 820 (Novice) · Triangle Tina 1010 / Reed Wobble 1180 (Class E) ·
+      Viola Vance 1300 (Class D) · Cornet Cleo 1450 / Tempo Tan 1560 (Class C) ·
+      Fugue Fennimore 1680 (Class B) · Crescendo Cruz 1820 / Diva Della 1930
+      (Class A) · Maestro Magnus 2010 (Expert). depth ramps 1→4, blunder .45→0,
+      noise 140→0. DEFAULT_ID='tempo'. get/has/byClass() helpers; pure data, no
+      DOM, require()-able. `rating` is the FIXED opponent rating fed to the rating
+      system (replaces the old AI_RATINGS=[1000,1500,2000] mapping; that constant
+      still exists in rating.js, now unused by main.js).
+    HONESTY: the ladder STOPS at the engine's honest ceiling (~2010, labelled
+    Expert). No 2400+/2700 personas that secretly play weak. True master strength
+    needs an opening book + transposition table + a richer eval (see backlog).
+  - OPPONENT PICKER (index.html #opp-picker, css .opp-*, ui.js buildOpponentPicker):
+    the 3-button #seg-diff segment was REPLACED by a scrollable card list grouped by
+    class band. Each card = a tinted procedural conductor portrait (drawIcon('K','b')
+    + CSS hue-rotate per persona.tint), name, and rating; the selected card is
+    highlighted. Chosen id persists as setup.opponent in mg_prefs (loadPrefs migrates
+    older numeric setup.diff → DEFAULT_ID and drops the stale key). grp-difficulty
+    still shows for CPU mode only (applyMode unchanged).
+  - WIRING (js/main.js): session gained {opponent (the persona), aiProfile}; level
+    is gone. startGame resolves the persona for cpu mode (null otherwise); cpuMove
+    searches with session.aiProfile; HUD name shows the persona's name; rematch
+    carries opponent.id; applyRatingResult grades against persona.rating/name.
+    startOnlineGame/online no longer pass a diff. New dev hook ?screen=setup.
+  - BANTER (PG, strings only; Options "Banter: On/Off" → settings.banter, default on):
+      * IN-GAME TOAST: when the CPU captures the human's Q or R, a speech-bubble
+        toast (#banter-toast, top-level overlay above the canvas/battle, z-index 30,
+        pointer-events none, auto-fades ~3.6s) shows persona.lines.bigCapture.
+        Fired from App.maybeBanterCapture() in recordCapture; only the CPU taunts.
+      * GAME-OVER LINE (#go-banter on the card): App.cpuBanterForEnd() supplies the
+        persona's `win` line if the CPU won, its gracious `lose` line if you did
+        (draws stay quiet); passed as showGameOver's new 4th arg. UI.showBanter/
+        hideBanter manage the toast; startGame/quitToMenu/showGameOver clear it.
+  - SCRIPT ORDER: opponents.js loads AFTER profiles.js and BEFORE ui.js (ui.js's
+    picker uses MG.Opponents + MG.Sprites).
+  - NOT TOUCHED: chess.js/battle.js/sprites.js/fx.js/board.js/net.js/audio.js/
+    rating.js/profiles.js unchanged (soak not re-run — none of those changed; ai.js
+    changed but is exercised by the sanity probe + the 26/26 mate-in-one assertion).
 
 V1.7 CHANGES — PLAYER PROFILES + CHESS RATING SYSTEM
   (verified: chess 26/26; rating 20/20; node --check on all touched files; a
@@ -331,8 +395,11 @@ STATUS: COMPLETE & VERIFIED v1.1
     perft(4)=197281 exact. Run: node tests/test_chess.js
   - AI: negamax+alpha-beta+quiescence (fail-soft — important, a fail-hard
     quiescence bug was fixed where narrowed root windows returned beta as
-    exact and tied with mate scores). 3 levels in js/ai.js DIFFS table:
-    Student(d2+jitter+blunders) / Performer(d3) / Virtuoso(d4, ~600ms/move).
+    exact and tied with mate scores). As of v1.8 the engine is PROFILE-DRIVEN
+    (js/ai.js normProfile): a persona supplies {depth, blunder, noise, nodeCap?}
+    and the 10-strong roster in js/opponents.js spans ~820–2010 Elo by deliberate
+    weakening (depth 1→4, blunder .45→0, noise 140→0; quiescence at depth>=3). The
+    old Student/Performer/Virtuoso live on as the LEGACY[0..2] back-compat table.
   - 76 battle choreographies in js/battle.js: 36 primary (CHOREO) + 40 alts
     (ALT), keyed 'X>Y' (attacker>defender), chosen at random per battle.
     '*>K' entries are the checkmate finales (grandFinale: curtain + applause +
@@ -369,6 +436,8 @@ DEV HOOKS (js/main.js debugHook — strip for release)
   ?shot=castle&c=w|b&alt=N  | ?shot=ep&alt=N  (en passant)
   ?shot=star&c=w|b&promo=Q|R|B|N  | ?shot=end&kind=stalemate|draw&alt=N
   ?shot=capture | ?shot=mate (scripted games) | ?shot=promo | ?shot=gameover
+  ?screen=online | ?screen=profiles | ?screen=setup (opens that menu screen;
+    ?screen=setup is handy for shooting the opponent picker)
   ?shot=soak — runs EVERY choreography take AND every set-piece scene to
     completion, logs "SOAK DONE 88/88" to console (use --enable-logging=
     stderr). Run after ANY change to sprites.js/battle.js/fx.js. Counts come
@@ -384,7 +453,11 @@ KNOWN MINOR ITEMS / POLISH BACKLOG (none blocking)
   - No hint button, no PGN export.
   - Title wordmark uses system Georgia; a custom (licensed/original) display
     font would elevate it.
-  - AI Virtuoso could gain an opening book + transposition table.
+  - ENGINE STRENGTH CAP (~2010 Elo): the persona ladder is honest — it stops at
+    the Expert band rather than faking a 2400+/2700 master. Pushing genuine master
+    strength (and adding higher rungs without lying about them) needs an opening
+    book + a transposition table + a richer evaluation (mobility, king safety, pawn
+    structure). Until then, do NOT add personas rated above ~2000.
 
 IDEAS IF CONTINUING
   - NEXT UP: bundled original synthesized soundtrack — audio.js can already

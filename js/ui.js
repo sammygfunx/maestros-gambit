@@ -12,8 +12,8 @@
   const UI = {
     handlers: {},
     settings: { sfx: 0.8, music: 0.6, speed: 1, view: 'iso', musicOn: true, track: 0, relayUrl: '',
-      clockMode: 'countdown', clockShown: true },
-    setup: { mode: 'cpu', diff: 1, side: 'w', battles: 'on' },
+      clockMode: 'countdown', clockShown: true, banter: true },
+    setup: { mode: 'cpu', opponent: MG.Opponents.DEFAULT_ID, side: 'w', battles: 'on' },
 
     init(handlers) {
       this.handlers = handlers;
@@ -48,11 +48,12 @@
         this.applyMode(v);
         this.savePrefs();
       }, this.setup.mode);
-      this.segInit('seg-diff', (v) => { this.setup.diff = +v; this.savePrefs(); }, String(this.setup.diff));
+      this.buildOpponentPicker();
       this.segInit('seg-side', (v) => { this.setup.side = v; this.savePrefs(); }, this.setup.side);
       this.segInit('seg-battles', (v) => { this.setup.battles = v; this.savePrefs(); }, this.setup.battles);
       this.segInit('seg-speed', (v) => { this.settings.speed = +v; this.savePrefs(); }, String(this.settings.speed));
       this.segInit('seg-clock', (v) => { this.settings.clockMode = v; this.savePrefs(); handlers.setClockMode(v); }, this.settings.clockMode);
+      this.segInit('seg-banter', (v) => { this.settings.banter = v === 'on'; this.savePrefs(); }, this.settings.banter ? 'on' : 'off');
       // Rating system applies to the ACTIVE profile (seeds the new model from
       // the current number). Guests have nothing to track, so it no-ops.
       this.segInit('seg-rating', (v) => {
@@ -302,6 +303,73 @@
       }));
     },
 
+    /* Build the opponent picker: a scrollable list of conductor cards grouped
+       by class band (Novice … Expert), each a tinted procedural portrait with
+       a name + rating. The chosen id is persisted in setup.opponent. */
+    buildOpponentPicker() {
+      const host = $('opp-picker');
+      if (!host) return;
+      if (!MG.Opponents.has(this.setup.opponent)) this.setup.opponent = MG.Opponents.DEFAULT_ID;
+      host.innerHTML = '';
+      for (const group of MG.Opponents.byClass()) {
+        const head = document.createElement('div');
+        head.className = 'opp-class-head';
+        head.textContent = group.klass;
+        host.appendChild(head);
+        const grid = document.createElement('div');
+        grid.className = 'opp-grid';
+        for (const o of group.list) {
+          const card = document.createElement('button');
+          card.type = 'button';
+          card.className = 'opp-card' + (o.id === this.setup.opponent ? ' sel' : '');
+          card.dataset.id = o.id;
+          card.title = o.blurb;
+          const cv = document.createElement('canvas');
+          cv.width = 48; cv.height = 60; cv.className = 'opp-portrait';
+          cv.style.filter = `hue-rotate(${o.tint}deg) saturate(1.15)`;
+          MG.Sprites.drawIcon(cv, 'K', 'b');
+          card.appendChild(cv);
+          const name = document.createElement('div');
+          name.className = 'opp-name'; name.textContent = o.name;
+          const rating = document.createElement('div');
+          rating.className = 'opp-rating'; rating.textContent = o.rating;
+          card.appendChild(name); card.appendChild(rating);
+          card.addEventListener('click', () => {
+            MG.Audio.uiClick();
+            this.setup.opponent = o.id;
+            this.savePrefs();
+            host.querySelectorAll('.opp-card').forEach((c) => c.classList.toggle('sel', c.dataset.id === o.id));
+          });
+          grid.appendChild(card);
+        }
+        host.appendChild(grid);
+      }
+    },
+
+    /* a CPU persona's trash-talk speech bubble; auto-fades. Honours the
+       Banter toggle (callers pass already-resolved text, so this just shows it) */
+    showBanter(who, line) {
+      const box = $('banter-toast');
+      if (!box || !line) return;
+      $('banter-who').textContent = who || '';
+      $('banter-line').textContent = line;
+      box.classList.remove('hidden', 'show');
+      void box.offsetWidth;            // reflow so the fade-in re-triggers
+      box.classList.add('show');
+      clearTimeout(this._banterT);
+      this._banterT = setTimeout(() => {
+        box.classList.remove('show');
+        setTimeout(() => box.classList.add('hidden'), 300);
+      }, 3600);
+    },
+    hideBanter() {
+      const box = $('banter-toast');
+      if (!box) return;
+      clearTimeout(this._banterT);
+      box.classList.remove('show');
+      box.classList.add('hidden');
+    },
+
     /* reflect the chosen mode in the setup screen: difficulty is CPU-only;
        side acts as the host's preferred colour online; relabel the start button */
     applyMode(v) {
@@ -518,12 +586,16 @@
       fill('cap-black', capturedByBlack, 'w');
     },
 
-    showGameOver(title, sub, ratingHtml) {
+    showGameOver(title, sub, ratingHtml, banterText) {
       $('go-title').textContent = title;
       $('go-sub').textContent = sub;
+      const gb = $('go-banter');
+      if (banterText) { gb.textContent = banterText; gb.classList.remove('hidden'); }
+      else gb.classList.add('hidden');
       const gr = $('go-rating');
       if (ratingHtml) { gr.innerHTML = ratingHtml; gr.classList.remove('hidden'); }
       else gr.classList.add('hidden');
+      this.hideBanter();   // clear any lingering in-game toast
       $('screen-gameover').classList.remove('hidden');
     },
 
@@ -539,6 +611,9 @@
         const p = JSON.parse(raw);
         if (p.settings) Object.assign(this.settings, p.settings);
         if (p.setup) Object.assign(this.setup, p.setup);
+        // migrate older prefs (numeric setup.diff) to the persona ladder
+        delete this.setup.diff;
+        if (!MG.Opponents.has(this.setup.opponent)) this.setup.opponent = MG.Opponents.DEFAULT_ID;
       } catch (e) { /* ignore */ }
     },
   };

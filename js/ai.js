@@ -1,10 +1,21 @@
 /* ============================================================
    Maestro's Gambit — ai.js
-   Negamax + alpha-beta + quiescence chess AI with three
-   difficulty levels:
-     0 Student   — shallow, picks loosely among decent moves
-     1 Performer — solid club-player tactics
-     2 Virtuoso  — deeper search, quiescence, best move always
+   Negamax + alpha-beta + quiescence chess AI driven by a
+   STRENGTH PROFILE rather than a fixed handful of levels.
+
+   A profile = { depth, blunder, noise, nodeCap? } (the persona
+   fields in js/opponents.js):
+     depth    plies of full-width search (1 = barely tactical).
+     blunder  per-move chance of playing a non-best legal move.
+     noise    points of random eval jitter (humanises play).
+     nodeCap  optional search-node ceiling (defaults by depth).
+   Quiescence is enabled automatically at depth >= 3, so weak
+   personas genuinely hang pieces (they never see the recapture)
+   while strong ones do not.
+
+   chooseMove / chooseMoveAsync accept either a profile object or
+   a legacy numeric level (0 Student / 1 Performer / 2 Virtuoso),
+   so older call-sites keep working.
    ============================================================ */
 (function () {
   const MG = (globalThis.MG = globalThis.MG || {});
@@ -84,11 +95,29 @@
     ],
   };
 
-  const DIFFS = [
-    { depth: 2, quiesce: false, jitter: 70, blunder: 0.18, nodeCap: 40000 },
-    { depth: 3, quiesce: true, jitter: 14, blunder: 0.0, nodeCap: 250000 },
-    { depth: 4, quiesce: true, jitter: 0, blunder: 0.0, nodeCap: 1600000 },
+  // Legacy three-level table, kept so a bare numeric level still works
+  // (the roster's personas now carry their own profiles instead).
+  const LEGACY = [
+    { depth: 2, blunder: 0.18, noise: 70, nodeCap: 40000 },    // 0 Student
+    { depth: 3, blunder: 0.0, noise: 14, nodeCap: 250000 },    // 1 Performer
+    { depth: 4, blunder: 0.0, noise: 0, nodeCap: 1600000 },    // 2 Virtuoso
   ];
+
+  // Normalise a persona profile (or a legacy numeric level) into the internal
+  // search config. Maps the public `noise` field onto the engine's `jitter`,
+  // derives quiescence from depth, and fills a sensible node cap.
+  function normProfile(p) {
+    if (p == null) p = 1;
+    if (typeof p === 'number') p = LEGACY[Math.max(0, Math.min(2, p | 0))];
+    const depth = Math.max(1, p.depth || 2);
+    return {
+      depth,
+      quiesce: p.quiesce != null ? p.quiesce : depth >= 3,
+      jitter: p.noise != null ? p.noise : (p.jitter || 0),
+      blunder: p.blunder || 0,
+      nodeCap: p.nodeCap || (depth >= 4 ? 1600000 : depth >= 3 ? 400000 : 80000),
+    };
+  }
 
   const AI = {
     nodes: 0,
@@ -169,9 +198,10 @@
       return best;
     },
 
-    /* Returns the chosen move synchronously. */
-    chooseMove(game, level) {
-      const cfg = DIFFS[Math.max(0, Math.min(2, level))];
+    /* Returns the chosen move synchronously. `profile` is a persona profile
+       object ({depth,blunder,noise,nodeCap?}) or a legacy numeric level. */
+    chooseMove(game, profile) {
+      const cfg = normProfile(profile);
       this.nodes = 0;
       const moves = game.legalMoves();
       if (!moves.length) return null;
@@ -195,28 +225,32 @@
       }
       scored.sort((a, b) => b.score - a.score);
 
-      // Student level: sometimes pick a clearly weaker move, and add jitter
-      // so play feels human and beatable. Never randomize away a forced mate:
-      // mate-in-1 (99999) and mate-in-2 (99997) differ by single points, well
-      // inside the jitter band.
+      // Deliberate weakening (low ratings). Never throw away a forced mate:
+      // mate-in-1 (99999) and mate-in-2 (99997) differ by single points, far
+      // inside the noise band, so a winning persona still finishes the job.
       const mateOnBoard = scored[0].score > 90000;
-      if (cfg.jitter > 0 && !mateOnBoard) {
+      if (mateOnBoard) return scored[0].m;
+
+      // (1) BLUNDER: a flat chance to abandon the best move and play a random
+      //     *other* legal move — this is what makes weak personas hang pieces.
+      if (cfg.blunder > 0 && scored.length > 1 && Math.random() < cfg.blunder) {
+        return scored[1 + Math.floor(Math.random() * (scored.length - 1))].m;
+      }
+      // (2) NOISE: eval jitter so even non-blundering play feels human, and the
+      //     persona doesn't always find the single objectively-best reply.
+      if (cfg.jitter > 0) {
         for (const s of scored) s.score += (Math.random() * 2 - 1) * cfg.jitter;
         scored.sort((a, b) => b.score - a.score);
-        if (Math.random() < cfg.blunder && scored.length > 2) {
-          const pick = 1 + Math.floor(Math.random() * Math.min(3, scored.length - 1));
-          return scored[pick].m;
-        }
       }
       return scored[0].m;
     },
 
     /* Async wrapper so the UI can paint a "thinking" indicator first. */
-    chooseMoveAsync(game, level, cb) {
+    chooseMoveAsync(game, profile, cb) {
       const minDelay = 450 + Math.random() * 500;
       const t0 = Date.now();
       setTimeout(() => {
-        const m = this.chooseMove(game, level);
+        const m = this.chooseMove(game, profile);
         const elapsed = Date.now() - t0;
         const wait = Math.max(0, minDelay - elapsed);
         setTimeout(() => cb(m), wait);

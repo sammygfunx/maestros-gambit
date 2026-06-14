@@ -19,9 +19,9 @@
 
   // New profiles start here; the classic Elo seed.
   const START_RATING = 1200;
-  // Fixed "opponent rating" per AI level so a human's number converges
-  // sensibly against the computer (indices match the AI DIFFS table:
-  // 0 Student, 1 Performer, 2 Virtuoso).
+  // Legacy fixed "opponent rating" per old AI level. SUPERSEDED in v1.8 by each
+  // persona's own `rating` field (js/opponents.js), which main.js now grades
+  // against. Kept only for back-compat; not used by the live game.
   const AI_RATINGS = [1000, 1500, 2000];
 
   // Glicko-2 defaults (Glickman 2013): RD 350 for a brand-new rating,
