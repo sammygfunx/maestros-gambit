@@ -156,6 +156,7 @@
     ROSTER, DEFAULT_ID, classOf,
     get(id) { return BY_ID[id] || BY_ID[DEFAULT_ID]; },
     has(id) { return !!BY_ID[id]; },
+    ids() { return ROSTER.map((o) => o.id); },
     // ROSTER grouped into [{ klass, list:[…] }] in ladder order, for the picker.
     byClass() {
       const groups = [];
@@ -165,6 +166,55 @@
         cur.list.push(o);
       }
       return groups;
+    },
+
+    /* ---------------- progression (the single-player ladder) ----------------
+       `defeated` is a profile's {id:true} map of personas the human has beaten
+       (js/profiles.js). These helpers are pure — they read that map and the
+       fixed ladder order; persistence + the win event live elsewhere. */
+
+    // {id:true} of personas that are currently PLAYABLE. A rung unlocks once the
+    // rung below it is beaten (or it has already been beaten); the first rung is
+    // always open, and Free Play opens everything so nobody is hard-gated.
+    unlocked(defeated, freePlay) {
+      defeated = defeated || {};
+      const out = {};
+      for (let i = 0; i < ROSTER.length; i++) {
+        const id = ROSTER[i].id;
+        out[id] = !!freePlay || i === 0 || !!defeated[id] || !!defeated[ROSTER[i - 1].id];
+      }
+      return out;
+    },
+    // {klass:true} for bands whose every persona has been defeated.
+    clearedBands(defeated) {
+      defeated = defeated || {};
+      const out = {};
+      for (const g of this.byClass()) out[g.klass] = g.list.every((o) => !!defeated[o.id]);
+      return out;
+    },
+    // the whole roster bested?
+    isComplete(defeated) {
+      defeated = defeated || {};
+      return ROSTER.every((o) => !!defeated[o.id]);
+    },
+    defeatedCount(defeated) {
+      defeated = defeated || {};
+      return ROSTER.reduce((n, o) => n + (defeated[o.id] ? 1 : 0), 0);
+    },
+    // a structured climb for the Career screen: bands, each with its personas
+    // annotated 'defeated' | 'unlocked' | 'locked'.
+    ladder(defeated, freePlay) {
+      defeated = defeated || {};
+      const unlocked = this.unlocked(defeated, freePlay);
+      const cleared = this.clearedBands(defeated);
+      return this.byClass().map((g) => ({
+        klass: g.klass,
+        cleared: cleared[g.klass],
+        list: g.list.map((o) => ({
+          o,
+          status: defeated[o.id] ? 'defeated' : (unlocked[o.id] ? 'unlocked' : 'locked'),
+        })),
+      }));
     },
   };
 

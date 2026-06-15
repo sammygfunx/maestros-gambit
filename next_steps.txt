@@ -1,0 +1,251 @@
+MAESTRO'S GAMBIT — NEXT STEPS (post-v1.8 roadmap)
+Created: 2026-06-15
+
+HOW TO USE THIS FILE
+  Each numbered PASS below is a self-contained unit of work with an ideal
+  copy/paste prompt and a suggested model + effort. Start each pass in a FRESH
+  thread (cold context = cheaper + more focused; the prompts tell the new thread
+  to read PROJECT_STATE.txt first, so nothing is lost). Work top to bottom.
+  Effort note: "high" is thorough but burns tokens fastest; "medium" handles most
+  UI/polish work fine. Batched passes do 2+ goals at once to avoid paying the
+  cold-start cost twice.
+
+  Deferred on purpose (do these with your brother across two networks/devices):
+    #1 Real-network + real-device ONLINE test (deploy the relay to Render, play
+       Greenville <-> Charlotte, confirm wss:// + free-tier cold start).
+    #2 Real MOBILE pass on actual iOS/Android (safe-area, WebAudio unlock on
+       first touch, low-end battle frame rate, pinch-zoom suppression).
+  Both are validation, not building — no prompt needed, just play and note bugs.
+
+==================================================================
+EXECUTION ORDER (highest priority / do-first at the top)
+==================================================================
+  PASS 1  Progression over the rated ladder ........ DONE in v1.9  (2026-06-15)
+  PASS 2  PGN export/import + Puzzle mode ........... Opus, high    (batched #6+#7)
+  PASS 3  Accessibility + custom display font ....... Opus, medium  (batched #8+#9)
+  PASS 4  Opening book + transposition table ........ Opus, high    (solo, engine)
+  PASS 5  Trailer reel + capture pipeline ........... Opus, medium  (then screen-record)
+
+  WHY THIS ORDER
+   - Front-load the player-facing wins (progression, content) — they make the
+     game more fun, which also makes a better trailer.
+   - Do the visual polish (PASS 3) BEFORE the trailer so the trailer shows the
+     best-looking build (the new font especially).
+   - Do the engine surgery (PASS 4) late and ALONE: it touches the unit-tested
+     chess/AI core, so isolating it keeps any regression easy to spot.
+   - Record the trailer LAST (PASS 5), once everything else has landed.
+  You can reorder freely — these passes are independent. If you want a quick
+  visible win first, PASS 3 is the lightest.
+
+==================================================================
+PASS 1 — PROGRESSION OVER THE RATED LADDER  (Opus, high — solo)
+==================================================================
+WHY: v1.8 added a 10-persona rated ladder but beating personas does nothing yet.
+Progression turns the roster from a dropdown into a reason to keep playing — the
+single biggest "is this fun / do I come back" win.
+
+PROMPT:
+----------------------------------------------------------------------------
+Continue work on "Maestro's Gambit" (read PROJECT_STATE.txt + skim README.md
+first; don't restructure what works; keep everything copyright-original). When
+done, re-run `node tests/test_chess.js` (26/26) and `node tests/test_rating.js`,
+update PROJECT_STATE.txt + README.md, then commit & push.
+
+This pass: add a single-player PROGRESSION layer over the rated opponent ladder
+(js/opponents.js / MG.Opponents).
+ - Per-profile tracking (js/profiles.js, localStorage 'mg_profiles'): record which
+   personas the human has DEFEATED (a {id:true} map or best-result per id). Guest
+   tracks nothing. Update only when the HUMAN beats that persona in a cpu game,
+   wired from App.endGame in js/main.js.
+ - A "Career"/"Ladder" view (new screen, or a richer version of the opponent
+   picker): show the roster as a climb grouped by class band, each persona marked
+   locked / unlocked / defeated, with the next tier unlocked after you beat the
+   current one. ALWAYS keep a "Free Play (all unlocked)" toggle so casual players
+   are never hard-gated.
+ - Light rewards (strings/flags only, low bloat): a "Class cleared!" flourish, a
+   per-band completion flag persisted on the profile (Steam-achievement-ready),
+   and a "Ladder Complete — you bested Maestro Magnus" finale.
+ - Engine-cosmetic only: do not touch chess.js/ai.js/battle.js.
+ - Verify: profile localStorage round-trip incl. the new fields; node --check on
+   touched files; a headless screenshot of the Career screen (add a ?screen= hook
+   if helpful, like the existing ?screen=setup).
+----------------------------------------------------------------------------
+
+==================================================================
+PASS 2 — PGN EXPORT/IMPORT + PUZZLE MODE  (Opus, high — batched #6+#7)
+==================================================================
+WHY: both are "chess credibility" features that reuse the existing engine, so they
+batch cleanly. PGN is what chess players expect for saving/sharing/analyzing games;
+Puzzle mode is near-free content that shows off the battle scenes.
+
+WHAT PGN IS: Portable Game Notation — the universal plain-text chess format. A
+header block of tag pairs (Event/Site/Date/White/Black/Result) followed by the
+numbered move list in algebraic notation, e.g.:
+   [White "Ivory Philharmonic"] [Black "Maestro Magnus"] [Result "0-1"]
+   1. e4 e5 2. Nf3 Nc6 ... 0-1
+The engine already stores the moves as SAN in game.sanHistory, so EXPORT is easy;
+IMPORT means parsing that movetext back into engine moves. PGN lets a player save a
+game, share it, or paste it into Lichess/chess.com for analysis.
+
+PROMPT:
+----------------------------------------------------------------------------
+Continue work on "Maestro's Gambit" (read PROJECT_STATE.txt + skim README.md
+first; don't restructure what works; keep everything copyright-original). When
+done, re-run `node tests/test_chess.js` (26/26) and `node tests/test_rating.js`,
+add the new test (below), update PROJECT_STATE.txt + README.md, then commit & push.
+
+This pass does TWO related chess features:
+
+(A) PGN EXPORT/IMPORT.
+ - Put the logic in a new js/pgn.js (MG.PGN), DOM-free + require()-able under Node.
+ - EXPORT: build a valid PGN string from a finished/ongoing game — Seven-Tag-Roster
+   header (Event "Maestro's Gambit", Site, Date, Round, White/Black from the team +
+   persona/profile names, Result) + numbered SAN movetext from game.sanHistory +
+   result token. Wire a "Copy PGN" + "Download .pgn" action onto the game-over card
+   and Options.
+ - IMPORT: paste a PGN, strip tags/comments, tokenize the SAN movetext, and replay
+   it by matching each token against game.legalMoves()/game.toSAN() from the start
+   position; load it into a viewable game (reuse the board pipeline).
+ - Add tests/test_pgn.js: play a scripted game, export → re-import → assert the
+   resulting positions match (round-trip). Keep it node-runnable like the others.
+
+(B) PUZZLE / MATE-IN-N MODE.
+ - chess.js currently has NO FEN support. Add a minimal, well-tested FEN LOADER to
+   js/chess.js (parse piece placement, side to move, castling, ep, clocks) so
+   puzzles can be defined by FEN. Keep perft + all 26 chess tests green; add a FEN
+   round-trip assertion or two.
+ - Add a small curated PUZZLE set (6–10 positions: mate-in-1/2/3 + a "win material"
+   or two), each {id, fen, sideToMove, solutionSANs[], blurb}. New "Puzzles" mode
+   from the menu: load a position, let the player attempt the win, verify against
+   the solution (the engine can confirm), and play the existing battle scene on the
+   solving capture/mate. Reuse board.js/battle.js — no new rendering.
+ - Verify: test_pgn.js green; chess 26/26 incl. FEN round-trip; node --check;
+   headless screenshot of a loaded puzzle.
+----------------------------------------------------------------------------
+
+==================================================================
+PASS 3 — ACCESSIBILITY + CUSTOM DISPLAY FONT  (Opus, medium — batched #8+#9)
+==================================================================
+WHY: low engine risk (mostly css/style.css, index.html, js/ui.js, mg_prefs), and
+both lift storefront/trailer presentation. Do this BEFORE recording the trailer.
+
+PROMPT:
+----------------------------------------------------------------------------
+Continue work on "Maestro's Gambit" (read PROJECT_STATE.txt + skim README.md
+first; don't restructure what works; keep everything copyright-original). When
+done, re-run `node tests/test_chess.js` (26/26) and `node tests/test_rating.js`,
+update PROJECT_STATE.txt + README.md, then commit & push.
+
+This pass: presentation + accessibility polish (mostly css/style.css, index.html,
+js/ui.js; persist new toggles in mg_prefs like the existing settings).
+
+(A) ACCESSIBILITY.
+ - "Reduce Motion" Options toggle: when on, default battles to Quick Captures
+   (instant) and calm the title/menu particle animations (js/main.js drawTitle +
+   fx). Initialise it from window.matchMedia('(prefers-reduced-motion: reduce)').
+ - "Board Theme" Options control with at least one COLORBLIND-SAFE / high-contrast
+   palette alongside the current Ivory/Obsidian+gold (the scheme leans on hue, hard
+   for deuteranopia). Apply to the board squares / highlights in board.js. Persist.
+
+(B) CUSTOM DISPLAY FONT for the wordmark + screen headings (.game-title, .screen-
+   title, modal h3). Body/HUD can stay the current serif.
+ - Choose a HIGH-QUALITY display face under SIL OFL or CC0/public-domain whose vibe
+   fits the elegant-yet-pixel-art "symphonic" theme. Try 2–3 and pick the best (an
+   ornate/blackletter-ish or refined display serif likely suits better than an
+   arcade pixel font — but test one pixel option for contrast).
+ - BUNDLE THE FONT LOCALLY in a new fonts/ dir WITH its license file; @font-face it
+   from there. NO CDN/Google Fonts link — keep the build file://-safe AND
+   copyright-clean for commercial release. Add attribution to the Credits screen if
+   the license asks for it. Confirm the license explicitly permits commercial use +
+   bundling.
+ - Verify: node --check; headless screenshots of the title + a menu showing the new
+   font and the colorblind board theme; confirm the font loads from file:// offline.
+----------------------------------------------------------------------------
+
+==================================================================
+PASS 4 — OPENING BOOK + TRANSPOSITION TABLE  (Opus, high/max — solo, engine)
+==================================================================
+WHY: lets the top of the ladder HONESTLY climb past the current ~2000 ceiling and
+kills the "every game opens the same" feel. Touches the unit-tested engine, so do
+it alone and re-verify hard. Use "max" effort if you want the strongest result.
+
+PROMPT:
+----------------------------------------------------------------------------
+Continue work on "Maestro's Gambit" (read PROJECT_STATE.txt + skim README.md
+first; don't restructure what works; keep everything copyright-original). When
+done, re-run `node tests/test_chess.js` (MUST stay 26/26 incl. perft) and
+`node tests/test_rating.js`, update PROJECT_STATE.txt + README.md, then commit
+& push.
+
+This pass strengthens the engine (js/ai.js, maybe js/chess.js). Two parts:
+
+(A) OPENING BOOK: a small hand-authored tree of sound mainline openings (~a dozen,
+   a few plies deep) keyed by position. In book, STRONG personas play a weighted-
+   random book move (variety + perceived strength); weak personas ignore it or use
+   it rarely (so the ladder gradient holds). Keep the data ORIGINAL — opening theory
+   isn't copyrightable, but don't copy a specific published book file; author the
+   lines yourself. Put it in js/opening_book.js (MG.OpeningBook) or alongside ai.js.
+
+(B) TRANSPOSITION TABLE: add Zobrist hashing + a TT to negamax, with iterative
+   deepening, so the deeper personas search more efficiently and play stronger
+   within their node/time budget. Preserve the fail-soft quiescence behaviour noted
+   in PROJECT_STATE (the historic fail-hard mate-score bug).
+
+THEN optionally add 1–2 higher-rated personas to js/opponents.js — ONLY if a
+measured strength test supports the rating. Do NOT add fake-strong personas
+(honesty rule in PROJECT_STATE: the ladder must not lie about strength).
+
+Verify: chess 26/26 with perft(4)=197281 unchanged; re-run a poisoned-capture /
+self-play strength sanity probe to confirm the gradient still holds and the top
+personas improved; node --check on all touched files.
+----------------------------------------------------------------------------
+
+==================================================================
+PASS 5 — TRAILER REEL + CAPTURE PIPELINE  (Opus, medium — then YOU record)
+==================================================================
+WHY: highest marketing ROI for a spectacle-driven game. Best route is an IN-GAME
+auto-playing reel you screen-record in one take (smooth 60fps + the bundled music,
+zero video editing). Do this LAST so the reel shows the fully-polished build.
+
+PROMPT:
+----------------------------------------------------------------------------
+Continue work on "Maestro's Gambit" (read PROJECT_STATE.txt + skim README.md
+first; don't restructure what works; keep everything copyright-original). When
+done, re-run `node tests/test_chess.js` (26/26), update PROJECT_STATE.txt +
+README.md, then commit & push.
+
+This pass: build an in-game "attract mode" TRAILER REEL so one screen-recording is
+a finished ~30s trailer.
+ - Add `?reel=1` (and a Title-screen "Watch the Overture" button) that runs a
+   scripted, MUSIC-SYNCED timeline using the existing battle.js scenes: title
+   wordmark sting -> 4–6 of the best choreographies (e.g. piano-drop Q>K finale,
+   drum-off R>R, the checkmate grandFinale, a promotion "A Star Is Born") cut on the
+   beat of a bundled soundtrack track, with short gold TITLE CARDS between them
+   ("Two orchestras. One board." / "Every capture, a performance." / "Maestro's
+   Gambit — Wishlist on Steam"). Reuse the ff/warp timing + battle pipeline. Make it
+   skippable (click/Esc) and loopable.
+ - Also tidy the existing ?shot= hooks for clean STILL/GIF capture (consistent
+   framing) so storefront stills/GIFs are easy to grab headlessly.
+ - Verify: node --check; a few headless stills from the reel timeline; confirm the
+   reel runs start-to-finish without errors.
+
+AFTER it ships: full-screen the reel and screen-record it (macOS Cmd-Shift-5 or
+OBS) in one take — the reel already carries the music — then trim the ends. Minimal
+editing required.
+----------------------------------------------------------------------------
+
+==================================================================
+NOTES
+==================================================================
+ - TRAILER, what the AI can/can't do: I can't render or export a video file, real-
+   time-capture animation, or edit video. The high-leverage move is PASS 5 — I build
+   the auto-playing, music-synced reel INSIDE the game; you screen-record it. I can
+   also generate the storyboard and headless still/GIF clips for the storefront.
+   Best quality route: screen-record the in-game reel (true 60fps + audio) > AI
+   headless stills. You won't need to edit much.
+ - FONT licensing: only use SIL OFL or CC0/public-domain faces, bundle the file +
+   its license locally (no CDN), and keep attribution in Credits if required — this
+   preserves the "everything copyright-original / commercially safe" guarantee.
+ - Threading: start EACH pass in a new session and paste its prompt. The prompts are
+   self-contained (they re-read PROJECT_STATE first), so a fresh thread loses
+   nothing and costs less than continuing a long one.

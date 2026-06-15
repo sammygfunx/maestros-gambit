@@ -107,6 +107,17 @@
       const screen = q.get('screen');
       if (screen === 'online') { MG.UI.setup.mode = 'online'; MG.UI.openLobby(); return; }
       if (screen === 'profiles') { MG.UI.openProfiles(); return; }
+      if (screen === 'career') {
+        // dev-only: &demo=1 seeds a sample climb so the shot shows all states
+        if (q.get('demo')) {
+          const prof = MG.Profiles.create('Demo Maestro', 'elo');
+          ['pim', 'tina', 'reed', 'vance'].forEach((id) => MG.Profiles.recordDefeat(prof, id));
+          MG.Profiles.markCleared(prof, 'Novice');
+          MG.UI.refreshProfileUI();
+        }
+        MG.UI.openCareer();
+        return;
+      }
       if (screen === 'setup') { MG.UI.show('screen-setup'); return; }
       const shot = q.get('shot');
       if (!shot) return;
@@ -803,8 +814,36 @@
         MG.Audio.drawCue();
       }
       const ratingHtml = this.applyRatingResult(winner);
+      const progressHtml = this.applyProgression(winner);
       const banterText = this.cpuBanterForEnd(winner);
-      setTimeout(() => MG.UI.showGameOver(title, sub, ratingHtml, banterText), 900);
+      setTimeout(() => MG.UI.showGameOver(title, sub, ratingHtml, banterText, progressHtml), 900);
+    },
+
+    /* Single-player ladder progression: when the HUMAN beats a CPU persona,
+       record the defeat on the active profile and return the celebratory lines
+       for the game-over card (newly-bested conductor, a freshly cleared class
+       band, and the "you bested Maestro Magnus" finale). Returns null when there
+       is nothing to celebrate — a loss/draw, Guest, 2P/online, or a rematch
+       against an already-beaten persona. */
+    applyProgression(winner) {
+      if (!this.session || this.session.mode !== 'cpu') return null;
+      const persona = this.session.opponent;
+      if (!persona || winner == null || winner !== this.session.humanColor) return null;
+      const prof = MG.Profiles.active();
+      if (prof.guest) return null;
+
+      const lines = [];
+      if (MG.Profiles.recordDefeat(prof, persona.id)) lines.push(`You bested <b>${persona.name}</b>!`);
+      // a band "clears" the first time all of its personas are down
+      const cleared = MG.Opponents.clearedBands(prof.defeated);
+      if (cleared[persona.klass] && MG.Profiles.markCleared(prof, persona.klass)) {
+        lines.push(`★ <b>${persona.klass}</b> class cleared!`);
+      }
+      if (MG.Opponents.isComplete(prof.defeated) && MG.Profiles.setLadderComplete(prof)) {
+        lines.push('♔ <b>Ladder Complete</b> — you bested Maestro Magnus!');
+      }
+      if (!lines.length) return null;
+      return lines.map((l) => `<div class="gp-line">${l}</div>`).join('');
     },
 
     /* Update the active profile's rating for this finished game and return a

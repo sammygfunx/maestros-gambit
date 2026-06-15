@@ -27,6 +27,7 @@
       </button>
       <div class="menu-buttons">
         <button class="btn btn-big" id="btn-play">Take the Stage</button>
+        <button class="btn" id="btn-career">Career Ladder</button>
         <button class="btn" id="btn-howto">How to Play</button>
         <button class="btn" id="btn-profiles">Profiles</button>
         <button class="btn" id="btn-options">Options</button>
@@ -224,6 +225,26 @@
       </div>
     </div>
 
+    <!-- ====== CAREER LADDER (single-player progression) ====== -->
+    <div id="screen-career" class="screen hidden">
+      <h2 class="screen-title">Career Ladder</h2>
+      <p class="hint-text career-intro" id="career-intro">Climb the roster, conductor by conductor.</p>
+      <div class="career-toolbar">
+        <div class="career-progress" id="career-progress">0 / 10 conductors bested</div>
+        <div class="career-freeplay">
+          <span>Free Play</span>
+          <div class="seg seg-small" id="seg-freeplay">
+            <button class="seg-btn sel" data-v="off">Ladder <small>climb in order</small></button>
+            <button class="seg-btn" data-v="on">All Unlocked <small>roam freely</small></button>
+          </div>
+        </div>
+      </div>
+      <div class="career-list" id="career-list"><!-- filled by ui.js from MG.Opponents --></div>
+      <div class="menu-buttons">
+        <button class="btn" id="btn-career-back">Back</button>
+      </div>
+    </div>
+
     <!-- ====== ONLINE LOBBY ====== -->
     <div id="screen-online" class="screen hidden">
       <h2 class="screen-title">Online Duel</h2>
@@ -346,6 +367,7 @@
         <h3 id="go-title">Checkmate</h3>
         <p id="go-sub">The Ivory Philharmonic takes the final bow.</p>
         <p id="go-banter" class="go-banter hidden"></p>
+        <div id="go-progress" class="go-progress hidden"></div>
         <p id="go-rating" class="go-rating hidden"></p>
         <div class="menu-buttons row">
           <button class="btn" id="btn-go-menu">Main Menu</button>

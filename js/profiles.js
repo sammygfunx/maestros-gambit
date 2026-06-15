@@ -5,8 +5,15 @@
    between sessions (lost only if the user clears site data).
 
    A profile = { id, name, system, rating, rd, vol,
-                 games, wins, draws, losses, history[] }.
+                 games, wins, draws, losses, history[],
+                 defeated{id:true}, cleared{klass:true}, ladderComplete }.
    "Guest" is a synthetic, never-saved profile that tracks no rating.
+
+   The progression fields (defeated/cleared/ladderComplete) record the single-
+   player ladder climb (which personas the human has beaten, which class bands
+   are fully cleared, whether the whole roster is done). They are
+   Steam-achievement-ready flags; the ladder logic itself lives in
+   MG.Opponents.
 
    Rating math lives in MG.Rating; this module only stores results and
    calls into it. No DOM here.
@@ -41,6 +48,8 @@
       if (this.data.activeId !== GUEST_ID && !this.data.profiles[this.data.activeId]) {
         this.data.activeId = GUEST_ID;
       }
+      // back-fill progression fields onto profiles saved before this layer existed
+      for (const id in this.data.profiles) this.ensureProgress(this.data.profiles[id]);
       return this;
     },
     save() {
@@ -85,6 +94,7 @@
         rd: seed.rd, vol: seed.vol,
         games: 0, wins: 0, draws: 0, losses: 0,
         history: [],
+        defeated: {}, cleared: {}, ladderComplete: false,
       };
       this.data.profiles[prof.id] = prof;
       this.data.activeId = prof.id;
@@ -152,6 +162,48 @@
       prof = prof || this.active();
       if (prof.guest || prof.rating == null) return 'Guest';
       return Rating.label(prof.system) + ' ' + prof.rating;
+    },
+
+    /* ---- single-player ladder progression ----
+       Guest tracks nothing, so all of these no-op (return false / empty) for it.
+       The ladder *rules* (unlock order, band membership) live in MG.Opponents;
+       here we only persist flags. */
+    ensureProgress(prof) {
+      if (prof && !prof.guest) {
+        if (!prof.defeated || typeof prof.defeated !== 'object') prof.defeated = {};
+        if (!prof.cleared || typeof prof.cleared !== 'object') prof.cleared = {};
+        if (typeof prof.ladderComplete !== 'boolean') prof.ladderComplete = false;
+      }
+      return prof;
+    },
+    hasDefeated(prof, id) { return !!(prof && !prof.guest && prof.defeated && prof.defeated[id]); },
+    // mark a persona beaten; returns true only the FIRST time (so callers can
+    // fire a one-shot flourish).
+    recordDefeat(prof, id) {
+      if (!prof || prof.guest || !id) return false;
+      this.ensureProgress(prof);
+      if (prof.defeated[id]) return false;
+      prof.defeated[id] = true;
+      this.save();
+      return true;
+    },
+    // record a band-completion flag; returns true only the first time.
+    markCleared(prof, klass) {
+      if (!prof || prof.guest || !klass) return false;
+      this.ensureProgress(prof);
+      if (prof.cleared[klass]) return false;
+      prof.cleared[klass] = true;
+      this.save();
+      return true;
+    },
+    // record the whole-ladder finale; returns true only the first time.
+    setLadderComplete(prof) {
+      if (!prof || prof.guest) return false;
+      this.ensureProgress(prof);
+      if (prof.ladderComplete) return false;
+      prof.ladderComplete = true;
+      this.save();
+      return true;
     },
   };
 

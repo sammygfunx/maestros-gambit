@@ -7,12 +7,12 @@
   const MG = (globalThis.MG = globalThis.MG || {});
   const $ = (id) => document.getElementById(id);
 
-  const SCREENS = ['screen-title', 'screen-setup', 'screen-options', 'screen-howto', 'screen-credits', 'screen-online', 'screen-profiles'];
+  const SCREENS = ['screen-title', 'screen-setup', 'screen-options', 'screen-howto', 'screen-credits', 'screen-online', 'screen-profiles', 'screen-career'];
 
   const UI = {
     handlers: {},
     settings: { sfx: 0.8, music: 0.6, speed: 1, view: 'iso', musicOn: true, track: 0, relayUrl: '',
-      clockMode: 'countdown', clockShown: true, banter: true },
+      clockMode: 'countdown', clockShown: true, banter: true, freePlay: false },
     setup: { mode: 'cpu', opponent: MG.Opponents.DEFAULT_ID, side: 'w', battles: 'on' },
 
     init(handlers) {
@@ -26,6 +26,8 @@
       nav('btn-howto', () => this.show('screen-howto'));
       nav('btn-options', () => { this.refreshRatingOption(); this.show('screen-options'); });
       nav('btn-credits', () => this.show('screen-credits'));
+      nav('btn-career', () => this.openCareer());
+      nav('btn-career-back', () => this.show('screen-title'));
       nav('btn-profiles', () => this.openProfiles());
       nav('title-profile', () => this.openProfiles());
       nav('setup-profile', () => this.openProfiles('screen-setup'));
@@ -54,6 +56,12 @@
       this.segInit('seg-speed', (v) => { this.settings.speed = +v; this.savePrefs(); }, String(this.settings.speed));
       this.segInit('seg-clock', (v) => { this.settings.clockMode = v; this.savePrefs(); handlers.setClockMode(v); }, this.settings.clockMode);
       this.segInit('seg-banter', (v) => { this.settings.banter = v === 'on'; this.savePrefs(); }, this.settings.banter ? 'on' : 'off');
+      // Career: "Free Play" opens every rung so casual players are never hard-gated.
+      this.segInit('seg-freeplay', (v) => {
+        this.settings.freePlay = v === 'on';
+        this.savePrefs();
+        this.buildCareer();
+      }, this.settings.freePlay ? 'on' : 'off');
       // Rating system applies to the ACTIVE profile (seeds the new model from
       // the current number). Guests have nothing to track, so it no-ops.
       this.segInit('seg-rating', (v) => {
@@ -346,6 +354,93 @@
       }
     },
 
+    /* ---- career ladder (single-player progression) ---- */
+    openCareer() {
+      this.buildCareer();
+      this.show('screen-career');
+    },
+    /* Render the climb: bands top-to-bottom, each persona marked
+       defeated / unlocked / locked. Unlocked & defeated rungs launch a vs-CPU
+       game straight away; locked rungs stay disabled until you beat the rung
+       below (Free Play opens them all). Reads the ACTIVE profile's defeated map
+       (Guest sees an empty climb and is nudged toward Free Play). */
+    buildCareer() {
+      const host = $('career-list');
+      if (!host) return;
+      const prof = MG.Profiles.active();
+      const defeated = prof.guest ? {} : (prof.defeated || {});
+      const freePlay = !!this.settings.freePlay;
+      const total = MG.Opponents.ROSTER.length;
+      const beaten = MG.Opponents.defeatedCount(defeated);
+      $('career-progress').textContent = `${beaten} / ${total} conductors bested`;
+      const intro = $('career-intro');
+      if (intro) {
+        intro.textContent = prof.guest
+          ? 'Playing as Guest — your climb is not saved. Create a profile to track progress, or switch on All Unlocked to roam.'
+          : MG.Opponents.isComplete(defeated)
+            ? 'You have bested the entire hall. Maestro Magnus salutes you — replay any rung for the encore.'
+            : 'Beat each conductor to unlock the next rung. Switch on All Unlocked to play anyone.';
+      }
+
+      host.innerHTML = '';
+      for (const band of MG.Opponents.ladder(defeated, freePlay)) {
+        const sec = document.createElement('div');
+        sec.className = 'career-band';
+        const head = document.createElement('div');
+        head.className = 'career-band-head';
+        head.innerHTML = `<span class="cb-klass">${this._esc(band.klass)}</span>` +
+          (band.cleared ? '<span class="cb-cleared">✓ Cleared</span>' : '');
+        sec.appendChild(head);
+
+        const rungs = document.createElement('div');
+        rungs.className = 'career-rungs';
+        for (const it of band.list) {
+          const o = it.o, locked = it.status === 'locked';
+          const card = document.createElement('button');
+          card.type = 'button';
+          card.className = 'career-rung ' + it.status;
+          card.dataset.id = o.id;
+          card.disabled = locked;
+
+          const cv = document.createElement('canvas');
+          cv.width = 48; cv.height = 60; cv.className = 'opp-portrait';
+          cv.style.filter = `hue-rotate(${o.tint}deg) saturate(1.15)` + (locked ? ' grayscale(1) brightness(.45)' : '');
+          MG.Sprites.drawIcon(cv, 'K', 'b');
+          card.appendChild(cv);
+
+          const info = document.createElement('div');
+          info.className = 'cr-info';
+          info.innerHTML = `<div class="cr-name">${locked ? '???' : this._esc(o.name)}</div>` +
+            `<div class="cr-blurb">${locked ? 'Beat the conductor below to reveal this challenger.' : this._esc(o.blurb)}</div>`;
+          card.appendChild(info);
+
+          const side = document.createElement('div');
+          side.className = 'cr-side';
+          const statusLabel = it.status === 'defeated' ? '✓ Bested'
+            : it.status === 'unlocked' ? '▶ Play' : '🔒 Locked';
+          side.innerHTML = `<div class="cr-rating">${locked ? '—' : o.rating}</div>` +
+            `<div class="cr-status">${statusLabel}</div>`;
+          card.appendChild(side);
+
+          if (!locked) {
+            card.addEventListener('click', () => {
+              MG.Audio.uiClick();
+              this.setup.mode = 'cpu';
+              this.setup.opponent = o.id;
+              this.savePrefs();
+              this.handlers.startGame({
+                mode: 'cpu', opponent: o.id,
+                side: this.setup.side, battles: this.setup.battles,
+              });
+            });
+          }
+          rungs.appendChild(card);
+        }
+        sec.appendChild(rungs);
+        host.appendChild(sec);
+      }
+    },
+
     /* a CPU persona's trash-talk speech bubble; auto-fades. Honours the
        Banter toggle (callers pass already-resolved text, so this just shows it) */
     showBanter(who, line) {
@@ -586,12 +681,15 @@
       fill('cap-black', capturedByBlack, 'w');
     },
 
-    showGameOver(title, sub, ratingHtml, banterText) {
+    showGameOver(title, sub, ratingHtml, banterText, progressHtml) {
       $('go-title').textContent = title;
       $('go-sub').textContent = sub;
       const gb = $('go-banter');
       if (banterText) { gb.textContent = banterText; gb.classList.remove('hidden'); }
       else gb.classList.add('hidden');
+      const gp = $('go-progress');
+      if (progressHtml) { gp.innerHTML = progressHtml; gp.classList.remove('hidden'); }
+      else gp.classList.add('hidden');
       const gr = $('go-rating');
       if (ratingHtml) { gr.innerHTML = ratingHtml; gr.classList.remove('hidden'); }
       else gr.classList.add('hidden');

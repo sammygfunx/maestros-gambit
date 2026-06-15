@@ -45,6 +45,12 @@ is generated procedurally at runtime.
   ladder honestly tops out near 2000, the engine's ceiling.) Plus **Duet** — two
   players at one computer — or **Online Duel** — two players on different machines,
   paired by a short room code (see *Play online* below).
+- **Career Ladder** — a single-player climb over that roster. Beat a conductor to
+  unlock the next rung; clear every conductor in a class band for a "Class cleared!"
+  flourish, and best Maestro Magnus at the top for the *Ladder Complete* finale.
+  Progress is saved per profile (Guest tracks nothing). A **Free Play / All
+  Unlocked** toggle is always available, so casual players are never hard-gated, and
+  the classic setup-screen opponent picker stays fully open too.
 - **Banter** — each persona has a few short, PG, orchestra-flavoured lines: a taunt
   pops up when the CPU snatches your queen or rook, and a send-off appears on the
   game-over card. Toggle it in Options (*Banter: On/Off*).
@@ -121,7 +127,7 @@ js/audio.js       WebAudio synth engine: SFX, stingers & bundled soundtrack
 js/facts.js       100 "did you know?" orchestral facts for the connecting screen
 js/chess.js       rules engine (no rendering; unit-tested)
 js/ai.js          negamax + quiescence AI driven by a strength profile
-js/opponents.js   the rated CPU persona ladder (MG.Opponents) + their banter lines
+js/opponents.js   the rated CPU persona ladder (MG.Opponents) + banter + progression rules
 js/sprites.js     procedural pixel-art characters, rigs & poses
 js/fx.js          particles: notes, rings, lightning, piano-drop, curtain
 js/battle.js      battle stage + the 36-duel choreography book
@@ -146,6 +152,7 @@ shots/            reference screenshots taken during development (not in repo; r
 `?shot=soak` runs every choreography take and set-piece scene to completion (logs
 `SOAK DONE 88/88`). `?screen=online` opens the online lobby directly;
 `?screen=profiles` opens the player-profiles screen; `?screen=setup` opens the
-setup screen (handy for the opponent picker). `&warp=N`
+setup screen (handy for the opponent picker); `?screen=career` opens the Career
+Ladder (`&demo=1` seeds a sample climb so the shot shows all rung states). `&warp=N`
 multiplies game speed. Remove `debugHook()` in `main.js` to strip these from a
 release build.

@@ -1,8 +1,13 @@
 MAESTRO'S GAMBIT — PROJECT STATE
-Last updated: 2026-06-14 (v1.8 — rated opponent ladder: the single CPU became a
+Last updated: 2026-06-15 (v1.9 — single-player PROGRESSION over the rated ladder:
+a Career screen that climbs the 10-persona roster band by band (locked/unlocked/
+defeated), per-profile defeat tracking, a "Free Play / All Unlocked" toggle so
+nobody is hard-gated, and light rewards — "Class cleared!" flourishes, per-band
+completion flags, and a "Ladder Complete — you bested Maestro Magnus" finale)
+Prior: v1.8 — rated opponent ladder: the single CPU became a
 profile-driven AI + a roster of 10 named orchestra personas (~820–2010 Elo across
 the FIDE class bands), an opponent-card picker replacing the 3-level segment, and
-PG persona "banter" — capture taunts + game-over send-offs, Options toggle)
+PG persona "banter" — capture taunts + game-over send-offs, Options toggle
 Prior: v1.7 — player profiles + chess rating system: Elo (default) & full
 Glicko-2, USCF/ECF estimates, localStorage profiles, profile picker + Options
 system selector, rating shown in HUD & game-over card
@@ -19,6 +24,66 @@ Prior: v1.2 — choreography variety, castling/en-passant/promotion/stalemate/
 draw set-piece scenes, elaborate checkmate finale
 Prior: v1.1 — battle-end fix, curtain hold, camera views, quit confirm,
 mid-battle resize
+
+V1.9 CHANGES — SINGLE-PLAYER PROGRESSION (CAREER LADDER)
+  (verified: chess 26/26; rating 20/20; a dedicated progression harness 24/24 —
+  new-profile fields, Guest no-ops, first-vs-repeat defeat, unlock order, band
+  clearing, isComplete/ladderComplete one-shots, localStorage round-trip AND
+  legacy-profile back-fill migration; node --check on every touched file; a
+  headless Career screenshot (?screen=career&demo=1) shows all rung states; all
+  three menu screens load with zero app console errors)
+  - ENGINE/CHESS UNTOUCHED: chess.js/ai.js/battle.js not modified — this is a
+    cosmetic + persistence layer only, so the verified engine carries zero risk.
+  - PROGRESSION RULES (js/opponents.js — pure, node-safe additions to MG.Opponents):
+      * unlocked(defeated, freePlay) → {id:true} of PLAYABLE rungs. A rung opens
+        once the rung below it is beaten (or it is already beaten); rung 0 is always
+        open; Free Play opens everything (never hard-gated).
+      * clearedBands(defeated) → {klass:true} for bands whose every persona is down.
+      * isComplete(defeated) / defeatedCount(defeated) — whole-roster helpers.
+      * ladder(defeated, freePlay) → [{klass, cleared, list:[{o, status}]}] where
+        status is 'defeated' | 'unlocked' | 'locked'; the Career screen renders this.
+      * ids() helper. All read a profile's {id:true} `defeated` map; no DOM, no state.
+  - PER-PROFILE TRACKING (js/profiles.js — MG.Profiles): a profile gained
+    `defeated{id:true}`, `cleared{klass:true}`, and `ladderComplete` (bool). Guest
+    (synthetic) tracks NOTHING — every progression method no-ops for it. New API:
+    ensureProgress(prof) (back-fills the three fields; called on every profile in
+    load() so pre-v1.9 saves migrate cleanly), hasDefeated(prof,id),
+    recordDefeat(prof,id) / markCleared(prof,klass) / setLadderComplete(prof) — each
+    returns true only the FIRST time so callers fire one-shot flourishes. create()
+    seeds the three fields. The localStorage key/shape ('mg_profiles') is unchanged
+    otherwise; the rating math + recordGame path are untouched.
+  - WIN WIRING (js/main.js App.applyProgression, called from endGame alongside
+    applyRatingResult): only when the HUMAN wins a cpu game against a persona and a
+    real profile is active. Records the defeat, then builds the celebratory lines —
+    "You bested <name>!" (newly), "★ <class> class cleared!" (markCleared one-shot),
+    and "♔ Ladder Complete — you bested Maestro Magnus!" (setLadderComplete one-shot).
+    Returns null when there's nothing to celebrate (loss/draw, Guest, 2P/online, or a
+    rematch vs an already-beaten persona). The string is passed as showGameOver's new
+    5th arg and rendered in a new #go-progress block on the game-over card.
+  - CAREER SCREEN (index.html #screen-career, css .career-*, ui.js openCareer/
+    buildCareer): a new menu screen (Title → "Career Ladder"). Renders the climb
+    grouped by class band via MG.Opponents.ladder(): each band header carries a
+    "✓ Cleared" badge; each rung is a tinted conductor portrait (drawIcon('K','b') +
+    per-persona hue-rotate, grayscaled when locked) with name/blurb/rating and a
+    status pill ("✓ Bested" / "▶ Play" / "🔒 Locked"; locked rungs show "???" + a
+    teaser and are disabled). An unlocked/defeated rung LAUNCHES a vs-CPU game
+    immediately (sets setup.mode='cpu'+opponent, then handlers.startGame with the
+    player's current side/battles prefs). A "Free Play" segmented toggle
+    (#seg-freeplay → settings.freePlay, persisted, default off: Ladder/All Unlocked)
+    opens every rung. A live "N / 10 conductors bested" progress line + an intro that
+    adapts for Guest / mid-climb / complete. Reads the ACTIVE profile's defeated map
+    (Guest → empty climb, nudged toward Free Play / making a profile).
+  - SETUP PICKER UNCHANGED: the existing opponent-card picker on the setup screen
+    stays FULLY OPEN (all personas selectable) — it is the always-available casual
+    path; the Career screen is the opt-in gated climb. So there are two ways in and
+    neither hard-gates a casual player.
+  - DEV HOOK: ?screen=career opens the Career screen; &demo=1 seeds a throwaway
+    "Demo Maestro" profile with a few defeats so a headless shot shows all rung
+    states (defeated/unlocked/locked + cleared bands). Lives in debugHook (strip for
+    release, like the others).
+  - SCRIPT ORDER unchanged (opponents.js after profiles.js, before ui.js). The new
+    opponents.js helpers are referenced at call-time, and profiles.js's progression
+    methods don't depend on MG.Opponents, so the existing load order is fine.
 
 V1.8 CHANGES — RATED OPPONENT LADDER + PERSONAS + BANTER
   (verified: chess 26/26; rating 20/20; node --check on every touched file; a
@@ -436,8 +501,9 @@ DEV HOOKS (js/main.js debugHook — strip for release)
   ?shot=castle&c=w|b&alt=N  | ?shot=ep&alt=N  (en passant)
   ?shot=star&c=w|b&promo=Q|R|B|N  | ?shot=end&kind=stalemate|draw&alt=N
   ?shot=capture | ?shot=mate (scripted games) | ?shot=promo | ?shot=gameover
-  ?screen=online | ?screen=profiles | ?screen=setup (opens that menu screen;
-    ?screen=setup is handy for shooting the opponent picker)
+  ?screen=online | ?screen=profiles | ?screen=setup | ?screen=career (opens that
+    menu screen; ?screen=setup is handy for shooting the opponent picker;
+    ?screen=career&demo=1 seeds a sample climb so the shot shows all rung states)
   ?shot=soak — runs EVERY choreography take AND every set-piece scene to
     completion, logs "SOAK DONE 88/88" to console (use --enable-logging=
     stderr). Run after ANY change to sprites.js/battle.js/fx.js. Counts come
