@@ -1195,6 +1195,7 @@
       this.doneFired = false;
       this.fading = null;
       this.fadeIn = 0.35;
+      this.suppressBanner = false;   // the trailer reel hides the per-duel banner
       this.fxl.clear();
     }
 
@@ -1516,6 +1517,8 @@
 
       // banner — width is fluid: it hugs the text but never overflows a narrow
       // (mobile) viewport, shrinking the font a notch if the title is still too wide.
+      // (suppressed during the trailer reel for a clean, banner-free clip)
+      if (!this.suppressBanner) {
       ctx.save();
       ctx.textAlign = 'center';
       let fs = Math.max(13, Math.min(W * 0.026, 22));
@@ -1541,6 +1544,7 @@
       ctx.fillStyle = 'rgba(243,231,201,0.55)';
       ctx.fillText('tap or Esc to skip', W / 2, 12 + bh + 14);
       ctx.restore();
+      }
 
       // fades
       if (this.fadeIn > 0) {

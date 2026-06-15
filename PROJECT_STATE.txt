@@ -1,5 +1,21 @@
 MAESTRO'S GAMBIT — PROJECT STATE
-Last updated: 2026-06-15 (v2.2 — ENGINE STRENGTH: OPENING BOOK + TRANSPOSITION
+Last updated: 2026-06-15 (v2.3 — TRAILER REEL + CAPTURE PIPELINE. A MARKETING/
+PRESENTATION pass — no rules, engine, or choreography logic changed. (1) A new
+"attract mode" TRAILER REEL (js/reel.js, MG.Reel): a scripted, beat-synced ~33s
+timeline that drives the EXISTING battle pipeline so one screen-recording is a
+finished trailer — a wordmark sting, four choreography clips cut at their peaks
+(piano-drop Q>K, drum-off R>R, the K>K checkmate grand finale, and the "A Star Is
+Born" promotion), and three gold TITLE CARDS between them ("Two orchestras. One
+board." / "Every capture, a performance." / "Maestro's Gambit — Wishlist on Steam").
+Every cut lands on a beat of the bundled Overture (84 bpm); the timeline is its OWN
+deterministic clock so the edit reads as synced even with audio muted (headless
+capture). Skippable (click/Esc) and loopable. Reached from a new title-screen
+"Watch the Overture" button or ?reel=1. (2) The reel adds a battle-scene
+suppressBanner flag (so trailer clips are banner-free) which also powers a new
+&clean=1 option on the ?shot= scene hooks for framed, banner-free storefront stills;
+?reel=1&t=SECONDS freezes one reel frame for a headless still/GIF grab. See V2.3
+CHANGES below.)
+Prior: v2.2 — ENGINE STRENGTH: OPENING BOOK + TRANSPOSITION
 TABLE. The first pass to touch the search since the persona ladder. (1) A
 hand-authored OPENING BOOK (js/opening_book.js, MG.OpeningBook): ~20 sound mainlines
 keyed by position (transpositions handled); inside MG.AI.chooseMove a STRONG persona
@@ -53,6 +69,56 @@ Prior: v1.2 — choreography variety, castling/en-passant/promotion/stalemate/
 draw set-piece scenes, elaborate checkmate finale
 Prior: v1.1 — battle-end fix, curtain hold, camera views, quit confirm,
 mid-battle resize
+
+V2.3 CHANGES — TRAILER REEL + CAPTURE PIPELINE (marketing/presentation)
+  (verified: chess 34/34; choreography soak 88/88 [SOAK DONE — battle.js change is
+  banner-only, no choreography touched]; node --check on every touched file; the reel
+  plays start-to-finish and LOOPS cleanly headless with zero app console errors; eight
+  framed reel stills grabbed via ?reel=1&t=SECONDS [sting, both cards, finale card,
+  piano-drop, drum-off, grand finale, A-Star-Is-Born]; the new &clean=1 shot option
+  confirmed banner-free; title screen shows the new button.)
+  - PRESENTATION-ONLY pass. Touched: NEW js/reel.js; index.html (one <script> +
+    "Watch the Overture" title button); js/main.js (reel state in the loop, startReel/
+    exitReel, click/Esc routing, ?reel= + &clean= debug hooks); js/ui.js (button nav +
+    watchReel handler); js/battle.js (ADDITIVE suppressBanner flag only). chess.js,
+    ai.js, opening_book.js, choreography data, rating/profiles/opponents — UNCHANGED,
+    so the engine + the rated ladder carry zero risk.
+
+  (A) TRAILER REEL — js/reel.js (NEW, MG.Reel; loaded after battle.js, before
+      board.js). A state-machine timeline that REUSES MG.BattleScene for the duel
+      clips and draws its own wordmark sting + gold title cards in between:
+    - BEAT GRID: tuned to TRACKS[0] "Overture in Amber" (84 bpm, BEAT≈0.714s; the
+      synth loop is 16 beats so the music repeats cleanly under the reel). buildScript()
+      lists segments sized in BEATS; start() stamps each with an absolute t0/dur and the
+      reel runs on its OWN clock (App.loop drives reel.update/draw under state==='reel').
+      So cuts land on the beat even when audio is muted — the music is just the spine,
+      never a timing dependency (critical for deterministic headless capture).
+    - SCRIPT (~33s): sting(5 beats) · card "Two orchestras. One board." (4) · Q>K
+      piano-drop (7, speed 1.25) · R>R drum-off (6, speed 1.3) · card "Every capture, a
+      performance." (4) · K>K checkmate grand finale (8, speed 1.7) · "A Star Is Born"
+      promotion (6, speed 1.2) · finale card "Maestro's Gambit / Wishlist on Steam" (6).
+      Each battle clip carries a per-clip `speed` (baseSpeed) chosen so its money shot
+      (piano drop / cymbal crash / curtain+confetti / star morph) lands INSIDE its
+      window — the clip is deliberately shorter than the choreography's own curtain, so
+      the reel stays punchy. The reel owns the cut (onDone is a no-op); a gold flash
+      punctuates every cut for a beat accent.
+    - DRAWING: the sting/cards are canvas-drawn (Cinzel 'Maestro Display'/'Maestro
+      Heading', velvet gradient + vignette to match the title screen) with fade
+      envelopes; battle clips delegate to battle.draw() with suppressBanner=true. A
+      faint "click or Esc to skip" sits bottom-right.
+    - CONTROL: startReel() (App) resumes audio, hides the DOM screens, starts the
+      Overture from the top, sets state='reel'. Click or Esc → reel.skip() → exitReel()
+      stops the music and returns to the title. loop:true restarts the timeline on
+      reach-end (attract mode); the title button uses it, ?reel=1 too.
+
+  (B) CAPTURE PIPELINE TIDY — js/main.js + js/battle.js:
+    - suppressBanner (battle.js, reset in _setupScene, set by the reel after start)
+      hides the per-duel banner + skip hint. The ?shot= scene hooks now honour
+      &clean=1 (ffBattle sets it) for FRAMED, banner-free storefront stills.
+    - ?reel=1 plays the live trailer; ?reel=1&t=SECONDS calls reel.seek(t) (a synchronous
+      fixed-step advance at load) then FREEZES that frame (reel.active=false) for a
+      reproducible headless still/GIF grab. &warp=N + &mute fast-run the live reel to
+      confirm it plays through without errors.
 
 V2.2 CHANGES — OPENING BOOK + TRANSPOSITION TABLE (engine strength)
   (verified: chess 34/34 incl. perft(4)=197281 UNCHANGED; rating 20/20; a NEW
@@ -765,8 +831,15 @@ VERIFICATION DONE
     rather than huge --virtual-time-budget values.
 
 DEV HOOKS (js/main.js debugHook — strip for release)
+  ?reel=1 plays the attract-mode TRAILER REEL (loops; click/Esc exits).
+    ?reel=1&t=SECONDS freezes ONE reel frame for a headless still/GIF (synchronous
+    seek at load). ?reel=1&warp=N&mute fast-runs the live reel to confirm a clean
+    start-to-finish play. Climaxes for stills (current ~33s timeline): sting≈1.5,
+    piano-drop≈10.6, drum-off≈15.2, grand finale≈23.9, A-Star-Is-Born≈27.8.
   ?shot=board (&view=rot|table for other cameras)
-  ?shot=battle&att=Q&def=K&mate=1&ff=SECONDS  (&alt=N picks a specific take)
+  ?shot=battle&att=Q&def=K&mate=1&ff=SECONDS  (&alt=N picks a specific take;
+    &clean=1 hides the banner + skip hint for a framed storefront still — works on
+    every ?shot= scene hook: battle/castle/ep/star/end)
   ?shot=castle&c=w|b&alt=N  | ?shot=ep&alt=N  (en passant)
   ?shot=star&c=w|b&promo=Q|R|B|N  | ?shot=end&kind=stalemate|draw&alt=N
   ?shot=capture | ?shot=mate (scripted games) | ?shot=promo | ?shot=gameover
@@ -899,7 +972,7 @@ RATING SYSTEM — DONE in v1.7 (original plan)
 
 ARCHITECTURE CHEAT SHEET
   Namespace: globalThis.MG. Script order matters (see index.html).
-  main.js App: state machine 'menu'|'board'|'battle', move pipeline:
+  main.js App: state machine 'menu'|'board'|'battle'|'reel', move pipeline:
     executeMove -> snapshot -> game.move -> board.beginMoveAnim
     -> onArrive -> (battle if capture & enabled) -> afterMove
     -> status checks (mate => optional finale battle => endGame)
@@ -907,3 +980,7 @@ ARCHITECTURE CHEAT SHEET
   Board is authoritative immediately (engine state applied before anim);
   board view renders from a snapshot during animation.
   Captured trays tracked in App.capturedByWhite/Black (undo-aware).
+  reel.js MG.Reel ('reel' state): an attract-mode trailer that runs its own
+    beat-grid timeline, REUSING MG.BattleScene for the duel clips and drawing
+    its own wordmark sting + gold title cards; cuts on the Overture's beats.
+    Skippable (click/Esc) and loopable. See V2.3 CHANGES + DEV HOOKS (?reel=).

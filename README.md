@@ -59,6 +59,12 @@ is generated procedurally at runtime.
   couple of win-the-material tactics. Find the winning move and the stage performs
   your finishing blow (the defence is played for you); wrong tries are waved off so
   you can try again. Reached from the title menu.
+- **Watch the Overture** — a built-in, music-synced **trailer reel**. From the title
+  menu, sit back for a ~30-second attract-mode montage: the wordmark sting, the best
+  battle choreographies (the piano-drop checkmate, the percussion drum-off, the grand
+  curtain finale, an "A Star Is Born" promotion) cut on the beat of the bundled
+  *Overture in Amber*, with gold title cards between them. It loops; click or press Esc
+  to return. (One screen-recording makes a finished trailer.)
 - **PGN export & import** — copy or download any finished game as a standard
   **`.pgn`** file (game-over card or Options), or paste a PGN to replay it on the
   board. Useful for sharing games or studying them in another tool.
@@ -159,6 +165,7 @@ js/opponents.js   the rated CPU persona ladder (MG.Opponents) + banter + progres
 js/sprites.js     procedural pixel-art characters, rigs & poses
 js/fx.js          particles: notes, rings, lightning, piano-drop, curtain
 js/battle.js      battle stage + the 36-duel choreography book
+js/reel.js        attract-mode trailer reel (MG.Reel): beat-synced montage over the battle scene
 js/board.js       board view (3 camera projections), move animation, input
 js/rating.js      rating math: Elo + full Glicko-2, USCF/ECF estimates (unit-tested)
 js/profiles.js    player-profile persistence (localStorage 'mg_profiles')
@@ -181,8 +188,10 @@ colour-blind-safe palette, `&select=<square>` to show move markers) ·
 `?shot=battle&att=Q&def=K&mate=1&ff=5` (ff = fast-forward seconds; `&alt=N` picks a take)
 `?shot=castle&c=w` · `?shot=ep` · `?shot=star&promo=Q|R|B|N` · `?shot=end&kind=draw|stalemate`
 `?shot=capture` / `?shot=mate` (scripted games) · `?shot=promo` · `?shot=gameover`
-`?shot=soak` runs every choreography take and set-piece scene to completion (logs
-`SOAK DONE 88/88`). `?screen=online` opens the online lobby directly;
+(add `&clean=1` to any `?shot=` scene to hide the duel banner for a framed still).
+`?reel=1` plays the trailer reel; `?reel=1&t=SECONDS` freezes one reel frame for a
+headless still/GIF. `?shot=soak` runs every choreography take and set-piece scene to
+completion (logs `SOAK DONE 88/88`). `?screen=online` opens the online lobby directly;
 `?screen=profiles` opens the player-profiles screen; `?screen=setup` opens the
 setup screen (handy for the opponent picker); `?screen=options` opens Options;
 `?screen=career` opens the Career

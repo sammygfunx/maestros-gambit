@@ -32,6 +32,7 @@
       /* ---- navigation ---- */
       const nav = (btn, fn) => $(btn).addEventListener('click', () => { MG.Audio.uiClick(); fn(); });
       nav('btn-play', () => this.show('screen-setup'));
+      nav('btn-reel', () => handlers.watchReel());
       nav('btn-howto', () => this.show('screen-howto'));
       nav('btn-options', () => { this.refreshRatingOption(); this.show('screen-options'); });
       nav('btn-credits', () => this.show('screen-credits'));

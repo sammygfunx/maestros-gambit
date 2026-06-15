@@ -39,6 +39,7 @@
       this.game = new MG.Chess();
       this.board = new MG.BoardView(canvas);
       this.battle = new MG.BattleScene(canvas);
+      this.reel = new MG.Reel(canvas, this.battle);
       this.titleFx = new MG.FXLayer();
 
       MG.UI.init({
@@ -61,6 +62,7 @@
         leaveLobby: () => this.leaveLobby(),
         startPuzzle: (id) => this.startPuzzle(id),
         nextPuzzle: () => this.nextPuzzle(),
+        watchReel: () => this.startReel(),
         getLastPgn: () => this.lastPgn,
         loadPgn: (text) => this.loadPgnGame(text),
       });
@@ -94,7 +96,9 @@
       canvas.addEventListener('pointerdown', (e) => this.onPointer(e));
       canvas.addEventListener('pointermove', (e) => this.onHover(e));
       window.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && this.state === 'battle') this.battle.skip();
+        if (e.key !== 'Escape') return;
+        if (this.state === 'reel') this.reel.skip();
+        else if (this.state === 'battle') this.battle.skip();
       });
 
       window.addEventListener('error', (e) => {
@@ -109,7 +113,8 @@
       this.debugHook();
     },
 
-    /* dev/testing: ?shot=board | ?shot=battle&att=Q&def=K&mate=1&ff=5 | &warp=10 */
+    /* dev/testing: ?shot=board | ?shot=battle&att=Q&def=K&mate=1&ff=5&clean=1 | &warp=10
+       ?reel=1 plays the trailer; ?reel=1&t=SECONDS freezes one frame for a still. */
     debugHook() {
       const q = new URLSearchParams(location.search);
       const screen = q.get('screen');
@@ -137,6 +142,25 @@
         if (q.get('solve')) { MG.UI.setup.battles = 'off'; this.dtMult = parseFloat(q.get('warp')) || 12; }
         this.startPuzzle(puzzleId);
         if (q.get('solve')) this.autoSolvePuzzle();
+        return;
+      }
+      // ?reel=1 runs the attract-mode trailer. &t=SECONDS seeks to one frame and
+      // FREEZES it (synchronous step at load) for a clean headless still; &warp=N
+      // fast-runs the live reel to confirm it plays start-to-finish without errors.
+      if (q.get('reel') != null) {
+        const at = q.get('t');
+        if (at != null) {
+          MG.Audio.enabled = false;
+          MG.UI.hideAll();
+          this.reel.start({ loop: false, audio: false, onExit: () => {} });
+          this.reel.seek(parseFloat(at) || 0);
+          this.reel.active = false;           // hold this frame for capture
+          this.state = 'reel';
+        } else {
+          if (q.get('mute')) MG.Audio.enabled = false;
+          this.dtMult = parseFloat(q.get('warp')) || 1;
+          this.startReel();
+        }
         return;
       }
       const shot = q.get('shot');
@@ -237,8 +261,10 @@
       }
     },
 
-    /* fast-forward the live battle for headless screenshots (&ff=SECONDS) */
+    /* fast-forward the live battle for headless screenshots (&ff=SECONDS).
+       &clean=1 hides the duel banner + skip hint for a framed storefront still. */
     ffBattle(q) {
+      if (q.get('clean')) this.battle.suppressBanner = true;
       const ff = parseFloat(q.get('ff')) || 0;
       for (let i = 0; i < ff * 60; i++) this.battle.update(1 / 60);
     },
@@ -758,6 +784,7 @@
 
     onPointer(e) {
       MG.Audio.resume();
+      if (this.state === 'reel') { this.reel.skip(); return; }
       if (this.state === 'battle') { this.battle.skip(); return; }
       if (this.state !== 'board' || !this.isHumanTurn()) return;
       const sq = this.board.squareAt(e.clientX, e.clientY);
@@ -873,6 +900,21 @@
       const cpuWon = winner !== this.session.humanColor;
       const line = cpuWon ? persona.lines.win : persona.lines.lose;
       return line ? `“${line}” — ${persona.name}` : null;
+    },
+
+    /* ============== attract-mode trailer reel ============== */
+    /* the music-synced "Watch the Overture" trailer; click/Esc to exit */
+    startReel() {
+      MG.Audio.resume();
+      MG.UI.hideAll();
+      this.state = 'reel';
+      this.reel.start({ loop: true, onExit: () => this.exitReel() });
+    },
+    exitReel() {
+      this.reel.stop();
+      MG.Audio.stopBoardMusic();
+      this.state = 'menu';
+      MG.UI.show('screen-title');
     },
 
     /* enter the full-screen stage; sceneDone wraps onDone to restore the board */
@@ -1174,6 +1216,9 @@
 
       if (this.state === 'menu') {
         this.drawTitle(dt);
+      } else if (this.state === 'reel') {
+        this.reel.update(dt);
+        this.reel.draw();
       } else if (this.state === 'battle') {
         this.battle.update(dt);
         this.battle.draw();
