@@ -15,6 +15,35 @@
   function idx(r, c) { return r * 8 + c; }
   function onBoard(r, c) { return r >= 0 && r < 8 && c >= 0 && c < 8; }
 
+  /* ---------- Zobrist hashing (for the AI transposition table) ----------
+     A position hash kept as two 32-bit halves (hashHi/hashLo). The keys are
+     generated once from a FIXED-seed xorshift PRNG so the hash is deterministic
+     across runs. This is PURELY ADDITIVE: the hash rides along inside
+     _apply/_unapply and never affects move generation, legality, or results —
+     perft and every rule are untouched. Repetition detection still uses the
+     string posKey(); Zobrist is only consumed by js/ai.js's TT. */
+  const PT = 'PNBRQK';
+  const Z = (function () {
+    let s0 = 0x9e3779b9 >>> 0, s1 = 0x243f6a88 >>> 0; // fixed seed → stable hashes
+    function rnd() {
+      let x = s0; const y = s1;
+      s0 = y;
+      x ^= x << 23; x = x >>> 0;
+      x ^= x >>> 17;
+      x ^= y ^ (y >>> 26);
+      s1 = x >>> 0;
+      return (s0 + s1) >>> 0;
+    }
+    const key = () => ({ hi: rnd(), lo: rnd() });
+    const piece = [];
+    for (let p = 0; p < 12; p++) { piece[p] = []; for (let sq = 0; sq < 64; sq++) piece[p][sq] = key(); }
+    const castle = [key(), key(), key(), key()];  // wK wQ bK bQ
+    const ep = []; for (let f = 0; f < 8; f++) ep[f] = key();
+    const side = key();                           // XORed in when black is to move
+    return { piece, castle, ep, side };
+  })();
+  function pieceZ(p) { return (p.c === 'w' ? 0 : 6) + PT.indexOf(p.t); }
+
   class Chess {
     constructor() { this.reset(); }
 
@@ -36,7 +65,33 @@
       this.sanHistory = [];       // notation per ply
       this.repCount = {};
       this._bumpRep();
+      this.computeHash();
     }
+
+    /* ---------- Zobrist hash (consumed by the AI's transposition table) ----------
+       computeHash() rebuilds the hash from scratch (used at reset/loadFEN and as
+       an authoritative resync). During search the hash is maintained incrementally
+       in _apply (and restored verbatim in _unapply), so per-node cost stays tiny.
+       hashHi/hashLo are signed 32-bit ints — only their bit patterns matter, and
+       XOR is computed identically whether built incrementally or from scratch. */
+    computeHash() {
+      let hi = 0, lo = 0;
+      for (let i = 0; i < 64; i++) {
+        const p = this.board[i];
+        if (!p) continue;
+        const z = Z.piece[pieceZ(p)][i];
+        hi ^= z.hi; lo ^= z.lo;
+      }
+      if (this.turn === 'b') { hi ^= Z.side.hi; lo ^= Z.side.lo; }
+      if (this.castling.wK) { hi ^= Z.castle[0].hi; lo ^= Z.castle[0].lo; }
+      if (this.castling.wQ) { hi ^= Z.castle[1].hi; lo ^= Z.castle[1].lo; }
+      if (this.castling.bK) { hi ^= Z.castle[2].hi; lo ^= Z.castle[2].lo; }
+      if (this.castling.bQ) { hi ^= Z.castle[3].hi; lo ^= Z.castle[3].lo; }
+      if (this.ep >= 0) { const f = this.ep % 8; hi ^= Z.ep[f].hi; lo ^= Z.ep[f].lo; }
+      this.hashHi = hi; this.hashLo = lo;
+      return this;
+    }
+    _hx(z) { this.hashHi ^= z.hi; this.hashLo ^= z.lo; }
 
     /* ---------- position keys / repetition ---------- */
     posKey() {
@@ -233,30 +288,46 @@
 
     /* ---------- make / undo ---------- */
     _apply(m) {
+      const p = this.board[m.from];
       const undo = {
         m,
-        moved: this.board[m.from],
+        moved: p,
         taken: this.board[m.to],
         ep: this.ep,
         castling: { ...this.castling },
         halfmove: this.halfmove,
         fullmove: this.fullmove,
         epTaken: null,
+        hashHi: this.hashHi,        // snapshot so _unapply restores the hash exactly
+        hashLo: this.hashLo,
       };
-      const p = this.board[m.from];
+
+      // incremental Zobrist: the moving piece leaves `from`
+      this._hx(Z.piece[pieceZ(p)][m.from]);
       this.board[m.from] = null;
 
       if (m.flags === 'ep') {
         const capSq = m.to + (p.c === 'w' ? 8 : -8);
-        undo.epTaken = { sq: capSq, piece: this.board[capSq] };
+        const victim = this.board[capSq];
+        undo.epTaken = { sq: capSq, piece: victim };
+        this._hx(Z.piece[pieceZ(victim)][capSq]);     // the en-passant victim leaves
         this.board[capSq] = null;
+      } else if (undo.taken) {
+        this._hx(Z.piece[pieceZ(undo.taken)][m.to]);  // the captured piece leaves `to`
       }
-      this.board[m.to] = m.flags === 'promo' ? { t: m.promo, c: p.c } : p;
+
+      // the piece arrives on `to` (a promotion changes its type)
+      const arrived = m.flags === 'promo' ? { t: m.promo, c: p.c } : p;
+      this._hx(Z.piece[pieceZ(arrived)][m.to]);
+      this.board[m.to] = arrived;
 
       if (m.flags === 'castleK' || m.flags === 'castleQ') {
         const home = p.c === 'w' ? 7 : 0;
         const [rf, rt] = m.flags === 'castleK' ? [idx(home, 7), idx(home, 5)] : [idx(home, 0), idx(home, 3)];
-        this.board[rt] = this.board[rf];
+        const rook = this.board[rf];
+        this._hx(Z.piece[pieceZ(rook)][rf]);          // the rook leaves rf …
+        this._hx(Z.piece[pieceZ(rook)][rt]);          // … and lands on rt
+        this.board[rt] = rook;
         this.board[rf] = null;
       }
 
@@ -267,8 +338,19 @@
       if (m.from === 63 || m.to === 63) cz.wK = false;
       if (m.from === 0 || m.to === 0) cz.bQ = false;
       if (m.from === 7 || m.to === 7) cz.bK = false;
+      // hash any rights that just flipped (they only ever go true → false)
+      if (undo.castling.wK !== cz.wK) this._hx(Z.castle[0]);
+      if (undo.castling.wQ !== cz.wQ) this._hx(Z.castle[1]);
+      if (undo.castling.bK !== cz.bK) this._hx(Z.castle[2]);
+      if (undo.castling.bQ !== cz.bQ) this._hx(Z.castle[3]);
 
+      // en-passant target square (only the file is hashed)
+      if (undo.ep >= 0) this._hx(Z.ep[undo.ep % 8]);
       this.ep = m.flags === 'double' ? (m.from + m.to) / 2 : -1;
+      if (this.ep >= 0) this._hx(Z.ep[this.ep % 8]);
+
+      this._hx(Z.side);   // side to move always flips
+
       this.halfmove = (m.piece === 'P' || m.capture) ? 0 : this.halfmove + 1;
       if (this.turn === 'b') this.fullmove++;
       this.turn = this.turn === 'w' ? 'b' : 'w';
@@ -292,6 +374,8 @@
       this.castling = u.castling;
       this.halfmove = u.halfmove;
       this.fullmove = u.fullmove;
+      this.hashHi = u.hashHi;       // exact restore — no inverse XOR maths needed
+      this.hashLo = u.hashLo;
     }
 
     /* Public move: applies, records SAN + repetition. */
@@ -409,6 +493,7 @@
       this.sanHistory = [];
       this.repCount = {};
       this._bumpRep();
+      this.computeHash();
       return this;
     }
 

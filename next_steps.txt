@@ -23,7 +23,7 @@ EXECUTION ORDER (highest priority / do-first at the top)
   PASS 1  Progression over the rated ladder ........ DONE in v1.9  (2026-06-15)
   PASS 2  PGN export/import + Puzzle mode ........... Opus, high    (batched #6+#7)
   PASS 3  Accessibility + custom display font ....... Opus, medium  (batched #8+#9)
-  PASS 4  Opening book + transposition table ........ Opus, high    (solo, engine)
+  PASS 4  Opening book + transposition table ........ DONE in v2.2  (2026-06-15)
   PASS 5  Trailer reel + capture pipeline ........... Opus, medium  (then screen-record)
 
   WHY THIS ORDER
@@ -195,7 +195,7 @@ THEN optionally add 1–2 higher-rated personas to js/opponents.js — ONLY if a
 measured strength test supports the rating. Do NOT add fake-strong personas
 (honesty rule in PROJECT_STATE: the ladder must not lie about strength).
 
-Verify: chess 26/26 with perft(4)=197281 unchanged; re-run a poisoned-capture /
+Verify: chess 34/34 with perft(4)=197281 unchanged; re-run a poisoned-capture /
 self-play strength sanity probe to confirm the gradient still holds and the top
 personas improved; node --check on all touched files.
 ----------------------------------------------------------------------------

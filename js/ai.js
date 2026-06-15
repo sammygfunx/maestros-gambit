@@ -13,13 +13,36 @@
    personas genuinely hang pieces (they never see the recapture)
    while strong ones do not.
 
+   SEARCH EFFICIENCY (v2.2): the search is now ITERATIVE-DEEPENING
+   with a Zobrist-keyed TRANSPOSITION TABLE in negamax, so the
+   deeper personas prune far more and convert their fixed node
+   budget into stronger play WITHOUT changing their nominal depth
+   (a depth-N persona still searches N plies — it just gets there
+   more cheaply). The QUIESCENCE search keeps its historic fail-soft
+   behaviour and is deliberately left TT-free, so the fail-hard
+   mate-score bug noted in PROJECT_STATE cannot resurface.
+
+   OPENING BOOK (v2.2): when js/opening_book.js is loaded, strong
+   personas play a weighted-random book move while in book (variety
+   + perceived strength); weak personas rarely do, so the ladder
+   gradient is preserved. The book is consulted inside chooseMove.
+
    chooseMove / chooseMoveAsync accept either a profile object or
    a legacy numeric level (0 Student / 1 Performer / 2 Virtuoso),
-   so older call-sites keep working.
+   so older call-sites keep working. chooseMove takes an optional
+   `opts` ({ tt, id, book }) used by the strength A/B harness to
+   toggle each feature off; all default on.
    ============================================================ */
 (function () {
   const MG = (globalThis.MG = globalThis.MG || {});
   const V = { P: 100, N: 320, B: 330, R: 500, Q: 900, K: 20000 };
+
+  // Mate scoring + TT entry flags. The eval can never reach MATE_GUARD from
+  // material/PST alone, so |score| >= MATE_GUARD reliably means "a mate score":
+  // such scores are depth-sensitive, so they are never trusted from the TT.
+  const MATE = 100000;
+  const MATE_GUARD = 90000;
+  const TT_EXACT = 0, TT_LOWER = 1, TT_UPPER = 2;
 
   // Piece-square tables, from white's perspective (row 0 = rank 8).
   const PST = {
@@ -121,6 +144,7 @@
 
   const AI = {
     nodes: 0,
+    tt: null,   // Map<hashLo, { hi, depth, score, flag, fromTo }> for the active search
 
     evaluate(game) {
       // From the perspective of side to move.
@@ -174,61 +198,137 @@
       return best;
     },
 
+    // Bring the TT's stored best move (packed from<<8|to) to the front of the
+    // move list for a much sharper alpha-beta cutoff rate.
+    _bringFront(moves, fromTo) {
+      for (let i = 0; i < moves.length; i++) {
+        if ((moves[i].from << 8 | moves[i].to) === fromTo) {
+          if (i > 0) { const m = moves[i]; moves.splice(i, 1); moves.unshift(m); }
+          return;
+        }
+      }
+    },
+
     negamax(game, depth, alpha, beta, cfg) {
       this.nodes++;
       if (this.nodes > cfg.nodeCap) return this.evaluate(game);
+      const alphaOrig = alpha;
+
+      // --- transposition table probe ---
+      let ttMove = 0;
+      if (this.tt) {
+        const e = this.tt.get(game.hashLo);
+        if (e && e.hi === game.hashHi) {
+          ttMove = e.fromTo;
+          // Trust a stored bound only for non-mate scores at >= the needed depth.
+          if (e.depth >= depth && Math.abs(e.score) < MATE_GUARD) {
+            if (e.flag === TT_EXACT) return e.score;
+            if (e.flag === TT_LOWER) { if (e.score > alpha) alpha = e.score; }
+            else if (e.flag === TT_UPPER) { if (e.score < beta) beta = e.score; }
+            if (alpha >= beta) return e.score;
+          }
+        }
+      }
+
       const moves = game.legalMoves();
       if (!moves.length) {
-        return game.inCheck() ? -100000 + (cfg.depth - depth) : 0;
+        return game.inCheck() ? -MATE + (cfg.depth - depth) : 0;
       }
       if (game.halfmove >= 100) return 0;
       if (depth <= 0) {
+        // Quiescence stays TT-free and fail-soft (see the header note).
         return cfg.quiesce ? this.quiescence(game, alpha, beta, cfg, 6) : this.evaluate(game);
       }
       this.orderMoves(moves);
-      let best = -Infinity;
+      if (ttMove) this._bringFront(moves, ttMove);
+
+      let best = -Infinity, bestMove = null;
       for (const m of moves) {
         game._apply(m);
         const score = -this.negamax(game, depth - 1, -beta, -alpha, cfg);
         game._unapply();
-        if (score > best) best = score;
+        if (score > best) { best = score; bestMove = m; }
         if (best > alpha) alpha = best;
         if (alpha >= beta) break;
+      }
+
+      // --- transposition table store (skip mate scores + over-budget nodes) ---
+      if (this.tt && this.nodes <= cfg.nodeCap && Math.abs(best) < MATE_GUARD) {
+        const flag = best <= alphaOrig ? TT_UPPER : best >= beta ? TT_LOWER : TT_EXACT;
+        this.tt.set(game.hashLo, {
+          hi: game.hashHi, depth, score: best, flag,
+          fromTo: bestMove ? (bestMove.from << 8 | bestMove.to) : 0,
+        });
       }
       return best;
     },
 
+    /* One root sweep at a fixed depth. Mirrors the historic root window
+       (full window for the side to move, narrowed per move) so the persona's
+       blunder/noise character is unchanged; only the inner search got faster.
+       `prevScored` (the previous iteration's result) seeds best-move-first
+       ordering, which is most of iterative deepening's pruning win. */
+    _searchRoot(game, depth, cfg, prevScored) {
+      const ordered = prevScored.map((s) => s.m);
+      const out = [];
+      let alpha = -Infinity;
+      for (const m of ordered) {
+        game._apply(m);
+        let score;
+        if ((game.repCount[game.posKey()] || 0) >= 2) {
+          score = 0;   // avoid walking into a threefold when we're choosing
+        } else {
+          score = -this.negamax(game, depth - 1, -Infinity, -alpha, cfg);
+        }
+        game._unapply();
+        out.push({ m, score });
+        if (score > alpha) alpha = score;
+      }
+      out.sort((a, b) => b.score - a.score);
+      return out;
+    },
+
     /* Returns the chosen move synchronously. `profile` is a persona profile
-       object ({depth,blunder,noise,nodeCap?}) or a legacy numeric level. */
-    chooseMove(game, profile) {
+       object ({depth,blunder,noise,nodeCap?}) or a legacy numeric level.
+       `opts` ({ tt, id, book }, all default true) lets the strength A/B harness
+       disable a feature to measure its contribution. */
+    chooseMove(game, profile, opts) {
+      opts = opts || {};
       const cfg = normProfile(profile);
+
+      // OPENING BOOK: a strong persona usually answers from book while in book;
+      // a weak one rarely does (so it can't lean on theory it hasn't "learned").
+      if (opts.book !== false && MG.OpeningBook) {
+        const bm = MG.OpeningBook.pickFor(game, profile);
+        if (bm) return bm;
+      }
+
+      game.computeHash();   // authoritative base hash, however the position was reached
+      this.tt = opts.tt === false ? null : new Map();
       this.nodes = 0;
       const moves = game.legalMoves();
       if (!moves.length) return null;
       if (moves.length === 1) return moves[0];
 
       this.orderMoves(moves);
-      const scored = [];
-      let alpha = -Infinity;
-      for (const m of moves) {
-        game._apply(m);
-        // avoid simple threefold draws when winning
-        let score;
-        if ((game.repCount[game.posKey()] || 0) >= 2) {
-          score = 0;
-        } else {
-          score = -this.negamax(game, cfg.depth - 1, -Infinity, -alpha, cfg);
-        }
-        game._unapply();
-        scored.push({ m, score });
-        if (score > alpha) alpha = score;
+      // ITERATIVE DEEPENING: each pass reuses the TT + the previous ordering, so
+      // the deepest (target) pass prunes hardest and the persona spends its node
+      // budget where it counts. A persona still searches exactly cfg.depth plies
+      // — nominal depth, and thus rated strength, is unchanged.
+      let scored = moves.map((m) => ({ m, score: 0 }));
+      const idOn = opts.id !== false && cfg.depth > 1;
+      const dStart = idOn ? 1 : cfg.depth;
+      for (let d = dStart; d <= cfg.depth; d++) {
+        if (d > dStart && this.nodes > cfg.nodeCap) break;       // no budget for another pass
+        const next = this._searchRoot(game, d, cfg, scored);
+        if (d > dStart && this.nodes > cfg.nodeCap) break;       // pass truncated → keep the last clean one
+        scored = next;
       }
-      scored.sort((a, b) => b.score - a.score);
 
       // Deliberate weakening (low ratings). Never throw away a forced mate:
       // mate-in-1 (99999) and mate-in-2 (99997) differ by single points, far
       // inside the noise band, so a winning persona still finishes the job.
-      const mateOnBoard = scored[0].score > 90000;
+      const mateOnBoard = scored[0].score > MATE_GUARD;
       if (mateOnBoard) return scored[0].m;
 
       // (1) BLUNDER: a flat chance to abandon the best move and play a random

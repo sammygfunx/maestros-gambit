@@ -41,8 +41,12 @@ is generated procedurally at runtime.
   **rated ladder** from ~820 to ~2010 Elo, grouped by class band (Novice, Class
   E…Class A, Expert) in a card picker. Weaker conductors play genuinely weakly —
   shallow search plus a chance to blunder and noisy evaluation, so a novice really
-  does hang pieces — and each carries a fixed rating that feeds your own. (The
-  ladder honestly tops out near 2000, the engine's ceiling.) Plus **Duet** — two
+  does hang pieces — and each carries a fixed rating that feeds your own. The
+  stronger conductors open from a hand-authored **opening book** of sound mainlines
+  (weaker ones rarely do, so the gradient holds) and search with an iterative-
+  deepening engine backed by a transposition table, so they use their thinking
+  budget efficiently. (The ladder honestly tops out near 2000, the engine's
+  ceiling.) Plus **Duet** — two
   players at one computer — or **Online Duel** — two players on different machines,
   paired by a short room code (see *Play online* below).
 - **Career Ladder** — a single-player climb over that roster. Beat a conductor to
@@ -146,8 +150,9 @@ css/style.css     menus/HUD styling (+ @font-face for the bundled display fonts)
 fonts/            bundled Cinzel display fonts + their SIL OFL license files
 js/audio.js       WebAudio synth engine: SFX, stingers & bundled soundtrack
 js/facts.js       100 "did you know?" orchestral facts for the connecting screen
-js/chess.js       rules engine + FEN loader/exporter (no rendering; unit-tested)
-js/ai.js          negamax + quiescence AI driven by a strength profile
+js/chess.js       rules engine + FEN loader/exporter + Zobrist hash (no rendering; unit-tested)
+js/ai.js          iterative-deepening negamax + transposition table + quiescence, driven by a strength profile
+js/opening_book.js hand-authored opening book (MG.OpeningBook; DOM-free, unit-tested)
 js/pgn.js         PGN export/import (MG.PGN; DOM-free, unit-tested)
 js/puzzles.js     curated mate-in-N / win-material puzzle set (MG.Puzzles)
 js/opponents.js   the rated CPU persona ladder (MG.Opponents) + banter + progression rules
@@ -162,9 +167,11 @@ js/net.js         online client: room-code WebSocket relay glue
 js/main.js        game controller / state machine / render loop
 server/relay/     standalone Node WebSocket relay for Online Duel + its README
 tests/            node tests/test_chess.js  (34 assertions incl. perft + FEN)
+                  node tests/test_ai.js     (Zobrist hash, transposition table, opening book)
                   node tests/test_rating.js (Elo + the Glickman Glicko-2 example)
                   node tests/test_pgn.js    (PGN export/import round-trips)
                   node tests/test_net.js    (two clients play through the relay)
+                  node tests/strength_probe.js (informational: ladder gradient + search A/B)
 shots/            reference screenshots taken during development (not in repo; regenerate with ?shot=)
 ```
 

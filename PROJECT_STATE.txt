@@ -1,14 +1,25 @@
 MAESTRO'S GAMBIT — PROJECT STATE
-Last updated: 2026-06-15 (v2.1 — ACCESSIBILITY + CUSTOM DISPLAY FONT, a presentation/
-a11y polish pass. (1) REDUCE MOTION Options toggle (seeded from the OS
-prefers-reduced-motion) calms the title/menu particles and forces Quick Captures
-(instant) — no battle cut-scenes. (2) BOARD THEME Options control adds a
-high-contrast, colour-blind-safe blue/amber palette beside the classic ivory/ebony,
-with shape-coded move markers (ring=capture, note=quiet) so cues never rely on hue;
-applied in board.js + persisted. (3) CUSTOM DISPLAY FONT for the wordmark + screen
-headings: the Cinzel family (Cinzel Decorative for .game-title; Cinzel for
-.screen-title/modal h3), bundled LOCALLY in fonts/ under SIL OFL 1.1 with its license
-files + Credits attribution — no CDN, file://-safe. See V2.1 CHANGES below.)
+Last updated: 2026-06-15 (v2.2 — ENGINE STRENGTH: OPENING BOOK + TRANSPOSITION
+TABLE. The first pass to touch the search since the persona ladder. (1) A
+hand-authored OPENING BOOK (js/opening_book.js, MG.OpeningBook): ~20 sound mainlines
+keyed by position (transpositions handled); inside MG.AI.chooseMove a STRONG persona
+usually answers from book while in book (weighted-random for variety + perceived
+strength), a WEAK persona rarely does, so the ladder gradient is preserved. (2)
+ZOBRIST HASHING added to js/chess.js (purely ADDITIVE — perft(4)=197281 unchanged)
+feeds a TRANSPOSITION TABLE + ITERATIVE DEEPENING in negamax (js/ai.js): the deeper
+personas convert their FIXED node budget into stronger play — measured 30-0 vs the
+old single-pass search at an EQUAL node budget — WITHOUT changing nominal depth, so
+ratings stay honest. Quiescence is deliberately left TT-free + fail-soft (the
+historic mate-score bug can't resurface). NO higher-rated persona was added: a
+depth-5 search now wins ~69% vs depth-4 in self-play, but self-play shares this
+engine's crude eval blind spots, and PROJECT_STATE's stated prerequisite for an
+honest >2000 rung — a RICHER EVALUATION (mobility/king-safety/pawn-structure) — is
+still missing, so the ladder keeps its honest ~2010 cap. See V2.2 CHANGES below.)
+Prior: v2.1 — ACCESSIBILITY + CUSTOM DISPLAY FONT: a Reduce Motion Options toggle
+(seeded from prefers-reduced-motion) that calms the menu particles and forces Quick
+Captures; a high-contrast, colour-blind-safe board theme with shape-coded move
+markers (ring=capture, note=quiet); and the bundled Cinzel display family (SIL OFL
+1.1) for the wordmark + screen headings, no CDN, file://-safe
 Prior: v2.0 — TWO chess features: (1) PGN export/import — a new
 DOM-free js/pgn.js (MG.PGN) builds a Seven-Tag-Roster + numbered SAN movetext from a
 game and replays a pasted PGN move-by-move; "Copy PGN"/"Download .pgn" on the game-over
@@ -42,6 +53,104 @@ Prior: v1.2 — choreography variety, castling/en-passant/promotion/stalemate/
 draw set-piece scenes, elaborate checkmate finale
 Prior: v1.1 — battle-end fix, curtain hold, camera views, quit confirm,
 mid-battle resize
+
+V2.2 CHANGES — OPENING BOOK + TRANSPOSITION TABLE (engine strength)
+  (verified: chess 34/34 incl. perft(4)=197281 UNCHANGED; rating 20/20; a NEW
+  tests/test_ai.js 19/19 [Zobrist incremental==from-scratch over the whole perft(3)
+  tree + exact _unapply restore + transposition collisions + loadFEN seeding;
+  every authored book line legal end-to-end; book candidates/decline/out-of-book;
+  the persona book-chance gradient; TT-on==TT-off best score with TT never raising
+  the node count; mate-in-one for both colours; hanging-queen grab]; pgn 23/23
+  regression; node --check on every touched file; a headless title load is clean
+  with zero app console errors; a strength probe confirms the gradient + A/B.)
+  - ENGINE-ONLY pass. Touched: js/chess.js (additive Zobrist), js/ai.js (TT + ID +
+    book hook), NEW js/opening_book.js, index.html (one <script>). opponents.js,
+    rating.js, profiles.js, battle.js, board.js, ui.js, main.js, etc. UNCHANGED —
+    so the rated ladder + choreography carry zero risk (battle soak not re-run by
+    design; none of those files changed).
+
+  (A) OPENING BOOK — js/opening_book.js (NEW, MG.OpeningBook; pure + DOM-free,
+      require()-able; loads AFTER chess.js, before pgn.js):
+    - DATA: LINES = ~20 hand-authored mainlines (Ruy López/Italian/Scotch/Petrov/
+      Two Knights · Sicilian Najdorf+Classical · French · Caro-Kann · Scandinavian ·
+      QGD/QGA/Slav · KID/Nimzo/QID · London · English · Réti), a handful of plies
+      deep, covering both 1.e4 and 1.d4 plus flank openings and the common replies.
+      Opening THEORY isn't copyrightable and these lines are authored here move by
+      move — NOT copied from a specific published book file; names are descriptive.
+    - BUILD: replaying each line from the start records, at every position, which SAN
+      was played + how many lines pass through it (its weight). BOOK is keyed by the
+      engine's posKey() string, so transpositions merge automatically (141 distinct
+      book positions). Built lazily on first use; a SAN the engine won't accept is
+      console.warn'd and that line is truncated (a bad token can never wedge the book
+      or surface an illegal move). candidates(game) re-matches each stored SAN against
+      the live legalMoves(), so an offered move is always legal in its position.
+    - PERSONA POLICY (lives in the book so callers stay simple): bookChance(profile)
+      derives a per-persona probability from the persona's RATING (≈1100 Elo→0,
+      ≈2000→1; falls back to depth, and legacy numeric levels map 0/1/2→.12/.55/.9),
+      scaled to ≈.08 (weakest) … ≈.96 (strongest). pickFor(game, profile, rng?)
+      returns a weighted-random book move with that probability, else null. So strong
+      personas open from book often (variety + perceived strength) and weak ones
+      rarely — the ladder gradient is preserved (a novice can't lean on theory it
+      hasn't "learned").
+    - WIRING: consulted at the TOP of MG.AI.chooseMove (so the live cpuMove path +
+      its thinking-delay get it for free via chooseMoveAsync; main.js needed NO
+      change). Guarded by `MG.OpeningBook &&` so ai.js still runs standalone under
+      Node (test_chess.js doesn't load the book → book path inert there). Puzzle
+      defence is scripted, and puzzle FENs aren't openings, so the book never
+      interferes.
+
+  (B) ZOBRIST HASHING — js/chess.js (ADDITIVE; does NOT affect move-gen/legality):
+    - A fixed-seed xorshift PRNG builds the Zobrist tables once (12 piece×64 squares,
+      4 castle rights, 8 ep files, 1 side key). The position hash is two signed
+      32-bit halves hashHi/hashLo. computeHash() rebuilds from scratch (used at
+      reset()/loadFEN() and as an authoritative resync at the search root). During
+      search the hash is maintained INCREMENTALLY in _apply (piece leaves `from`,
+      capture/ep-victim leaves, piece arrives — promotion changes type, castling rook
+      hop, any flipped castling right, ep-file in/out, side flip) and RESTORED
+      VERBATIM in _unapply from a snapshot stashed in the undo record (so no inverse
+      XOR maths, and _unapply can't drift). Verified: incremental == from-scratch at
+      every node of the perft(3) tree, and exact restore after _unapply. Repetition
+      detection STILL uses the string posKey() (proven); Zobrist is consumed only by
+      the AI's TT, and the hash deliberately ignores the move clocks so transpositions
+      collide (which is what a TT wants).
+
+  (C) TRANSPOSITION TABLE + ITERATIVE DEEPENING — js/ai.js (negamax/chooseMove):
+    - TT: a per-search Map<hashLo,{hi,depth,score,flag,fromTo}> with full 64-bit
+      verification (entry.hi must match). Standard fail-soft bounds (EXACT/LOWER/
+      UPPER) give cutoffs when entry.depth>=needed; the stored best move (packed
+      from<<8|to) is pulled to the front of the move list for sharper pruning. MATE
+      scores (|score|>=MATE_GUARD=90000) are NEVER trusted from the TT (they're
+      ply-distance sensitive) and over-budget nodes aren't stored — so the
+      "never randomise away a forced mate" guarantee and the fail-hard mate-score
+      history are both safe.
+    - QUIESCENCE is UNCHANGED and deliberately TT-FREE — it keeps its fail-soft
+      "always return real evaluations" behaviour exactly as PROJECT_STATE warns.
+    - ITERATIVE DEEPENING: chooseMove now searches depth 1..cfg.depth, reusing the TT
+      and seeding each pass's root order from the previous pass (principal-variation-
+      first). A persona still searches EXACTLY cfg.depth plies — nominal depth, and
+      thus rated strength, is unchanged — it just reaches that depth far more cheaply
+      (≈40-60% fewer nodes on opening positions). A pass that blows the node cap is
+      discarded so the last CLEAN pass is used; depth-1 personas (ID off, single
+      pass) are byte-for-byte the old behaviour, so the weak end of the ladder is
+      untouched. The historic root window + the blunder/noise/mate-shortcut weakening
+      tail are preserved verbatim, so persona character is identical.
+    - A/B HOOK: chooseMove(game, profile, opts) gained an opts arg ({tt,id,book}, all
+      default on) used ONLY by the strength harness to toggle a feature off and
+      measure its contribution. The game never passes opts.
+
+  STRENGTH MEASUREMENT (tests/strength_probe.js, NEW — informational, not a gate):
+    - POISONED-CAPTURE GRADIENT (a position where Qxd5 wins a pawn but hangs the
+      queen to a recapture): depth-1 personas grab it 24%/41% of the time, every
+      depth-2+ persona ~0-1%, and the no-blunder summit (Della/Magnus) NEVER —
+      the strength gradient + the honesty invariant both hold after the changes.
+    - BUDGET A/B: the new search (TT+ID) vs the OLD one (single fixed-depth pass) at
+      the SAME 12k-node cap over 30 random-opening games → NEW 30-0 (100%). The TT+ID
+      genuinely converts a node budget into stronger play (the point of the pass).
+    - DEPTH A/B (informational, used for the persona decision): depth-5 vs depth-4
+      (both TT+ID) → depth-5 ~69%. Deeper IS stronger in self-play, BUT both share
+      this engine's crude-eval blind spots, so this overstates real-world strength.
+      Combined with the still-missing richer evaluation, this does NOT honestly
+      support a >2010 rung — so none was added (see backlog).
 
 V2.1 CHANGES — ACCESSIBILITY + CUSTOM DISPLAY FONT
   (verified: chess 34/34; rating 20/20; node --check on every touched file
@@ -609,8 +718,10 @@ V1.1 CHANGES (all verified: 26/26 tests, soak 36/36, headless screenshots)
 
 STATUS: COMPLETE & VERIFIED v1.1
   - Chess engine: full rules (castle/ep/promo/all draws) + a FEN loader/exporter
-    (v2.0). 34 unit tests pass (26 original + 8 FEN, incl. Kiwipete perft from a
-    loaded FEN), perft(4)=197281 exact. Run: node tests/test_chess.js
+    (v2.0) + additive Zobrist hashing (v2.2, feeds the AI's TT; does not affect the
+    rules). 34 unit tests pass (26 original + 8 FEN, incl. Kiwipete perft from a
+    loaded FEN), perft(4)=197281 exact. Run: node tests/test_chess.js. The v2.2
+    Zobrist + TT + opening book are pinned by node tests/test_ai.js (19 assertions).
   - AI: negamax+alpha-beta+quiescence (fail-soft — important, a fail-hard
     quiescence bug was fixed where narrowed root windows returned beta as
     exact and tied with mate scores). As of v1.8 the engine is PROFILE-DRIVEN
@@ -618,6 +729,11 @@ STATUS: COMPLETE & VERIFIED v1.1
     and the 10-strong roster in js/opponents.js spans ~820–2010 Elo by deliberate
     weakening (depth 1→4, blunder .45→0, noise 140→0; quiescence at depth>=3). The
     old Student/Performer/Virtuoso live on as the LEGACY[0..2] back-compat table.
+    As of v2.2 the search is ITERATIVE-DEEPENING with a Zobrist-keyed TRANSPOSITION
+    TABLE (quiescence kept TT-free + fail-soft), so each persona reaches its SAME
+    nominal depth far more cheaply (ratings unchanged); and an OPENING BOOK
+    (js/opening_book.js) lets strong personas open from sound, varied theory while
+    weak ones rarely do. See V2.2 CHANGES.
   - 76 battle choreographies in js/battle.js: 36 primary (CHOREO) + 40 alts
     (ALT), keyed 'X>Y' (attacker>defender), chosen at random per battle.
     '*>K' entries are the checkmate finales (grandFinale: curtain + applause +
@@ -682,10 +798,18 @@ KNOWN MINOR ITEMS / POLISH BACKLOG (none blocking)
     display family (was system Georgia). Also DONE in v2.1: a Reduce Motion a11y
     toggle and a colour-blind-safe high-contrast board theme.
   - ENGINE STRENGTH CAP (~2010 Elo): the persona ladder is honest — it stops at
-    the Expert band rather than faking a 2400+/2700 master. Pushing genuine master
-    strength (and adding higher rungs without lying about them) needs an opening
-    book + a transposition table + a richer evaluation (mobility, king safety, pawn
-    structure). Until then, do NOT add personas rated above ~2000.
+    the Expert band rather than faking a 2400+/2700 master. v2.2 delivered TWO of
+    the three things that pushing genuine master strength needs — an OPENING BOOK +
+    a TRANSPOSITION TABLE — but NOT the third, a RICHER EVALUATION (mobility, king
+    safety, pawn structure). The book + TT make the EXISTING top personas more
+    efficient and better in the opening (within their honest ratings); they do NOT
+    by themselves justify a higher rung. A depth-5 search is now affordable and wins
+    ~69% vs depth-4 in self-play, but self-play shares this engine's crude-eval blind
+    spots, so it overstates real strength — that is NOT honest grounds for a >2010
+    persona. So none was added. The remaining prerequisite is the richer evaluation;
+    until then, still do NOT add personas rated above ~2000. (A pawn-structure /
+    king-safety / mobility eval is the natural next engine pass, and WOULD then
+    honestly support one or two higher rungs.)
 
 IDEAS IF CONTINUING
   - NEXT UP: bundled original synthesized soundtrack — audio.js can already
