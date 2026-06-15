@@ -1,5 +1,13 @@
 MAESTRO'S GAMBIT — PROJECT STATE
-Last updated: 2026-06-15 (v1.9 — single-player PROGRESSION over the rated ladder:
+Last updated: 2026-06-15 (v2.0 — TWO chess features: (1) PGN export/import — a new
+DOM-free js/pgn.js (MG.PGN) builds a Seven-Tag-Roster + numbered SAN movetext from a
+game and replays a pasted PGN move-by-move; "Copy PGN"/"Download .pgn" on the game-over
+card + Options, and a paste-to-view import in Options. (2) PUZZLES — a minimal FEN
+loader/exporter added to js/chess.js, a curated 8-position set in js/puzzles.js
+(mate-in-1/2/3 + win-material), and a new "Puzzles" menu mode that loads a position,
+validates the solver's moves, plays the scripted defence, and reuses the battle scene on
+the solving capture/mate.)
+Prior: v1.9 — single-player PROGRESSION over the rated ladder:
 a Career screen that climbs the 10-persona roster band by band (locked/unlocked/
 defeated), per-profile defeat tracking, a "Free Play / All Unlocked" toggle so
 nobody is hard-gated, and light rewards — "Class cleared!" flourishes, per-band
@@ -24,6 +32,82 @@ Prior: v1.2 — choreography variety, castling/en-passant/promotion/stalemate/
 draw set-piece scenes, elaborate checkmate finale
 Prior: v1.1 — battle-end fix, curtain hold, camera views, quit confirm,
 mid-battle resize
+
+V2.0 CHANGES — PGN EXPORT/IMPORT + PUZZLE / MATE-IN-N MODE
+  (verified: chess 34/34 incl. 8 new FEN assertions [start/midgame/ep round-trips +
+  Kiwipete fen() round-trip and perft(1)=48 / perft(2)=2039 from a loaded FEN];
+  rating 20/20; a new tests/test_pgn.js 23/23 [Scholar's-Mate round-trip with
+  per-ply position match, ongoing-game "*", noisy-PGN import past comments/
+  variations/NAGs/glued numbers, illegal-move rejection, promotion + [FEN]/[SetUp]
+  setup replay]; node --check on every touched file; the 8 puzzles independently
+  verified in Node — legal positions, FEN round-trip, forced-mate solver confirms
+  each mate length, and the win tactics win the stated material against EVERY
+  defence; headless: puzzle list + a loaded puzzle + the game-over card's PGN
+  buttons all render, every screen loads with zero app console errors, and a single
+  puzzle move resolves through the live pipeline cleanly.)
+
+  (A) PGN EXPORT/IMPORT — js/pgn.js (NEW, MG.PGN; pure + DOM-free, require()-able):
+    - EXPORT (MG.PGN.export(game, meta?)): a Seven-Tag Roster header
+      (Event "Maestro's Gambit" / Site / Date YYYY.MM.DD / Round / White / Black /
+      Result) + numbered SAN movetext from game.sanHistory, wrapped ~80 cols, ending
+      in the result token. `meta` overrides any tag (white/black/date/round/result)
+      and can add `extra` tags (e.g. FEN/SetUp). The result token is derived from the
+      game's status (checkmate → 1-0/0-1 by who is mated, draws → 1/2-1/2, ongoing →
+      *); callers pass meta.result for resign/online endings.
+    - IMPORT (MG.PGN.import(text)): parses tag pairs, strips ;/{} comments, recursive
+      (…) variations, and $N NAGs, drops glued/standalone move numbers and result
+      tokens, then replays each SAN token by matching game.legalMoves()/toSAN() from
+      the start position (or from a [FEN] tag when present). Returns {game, headers,
+      moves}; throws on an unrecognized/illegal move.
+    - WIRING: App.buildPgnMeta() names White/Black from the team + the active profile
+      / persona ("Ivory Philharmonic (Tempo Tan)"). endGame stores App.lastPgn (with
+      the correct result from the winner). UI "Copy PGN"/"Download .pgn" live on the
+      game-over card (#go-pgn) AND in Options ("Copy/Download Last Game"); Options also
+      has a paste textarea + "Load PGN" → App.loadPgnGame(text) which imports and shows
+      the game on the board as a viewable 2P session (capture trays rebuilt from the
+      replayed history). UI.copyPgn/downloadPgn/loadPgnFromInput + setPgnStatus.
+
+  (B) PUZZLES / MATE-IN-N — js/chess.js FEN + js/puzzles.js + a new mode:
+    - FEN (js/chess.js, NEW methods on Chess): loadFEN(fen) parses piece placement,
+      side to move, castling rights, the ep target, and the halfmove/fullmove clocks
+      (resets history/sanHistory/repCount); fen() exports the inverse; _algToIdx()
+      helper. The engine is otherwise UNTOUCHED. Validated by perft from a loaded FEN
+      (Kiwipete 48 / 2039) + round-trip assertions in tests/test_chess.js (now 34/34).
+    - PUZZLE SET (js/puzzles.js, NEW — MG.Puzzles): 8 curated positions, each
+      { id, title, kind:'mate'|'win', mateIn?, fen, sideToMove, solutionSANs[], blurb }.
+      Three mate-in-1 (incl. one BLACK-to-move so sideToMove varies), one mate-in-2,
+      one mate-in-3, and two win-material tactics (a knight royal fork winning the
+      queen, a bishop skewer winning a rook). Every position is legal and was verified
+      in Node. Helpers: get/has/indexOf/objective/sideName, LIST.
+    - PUZZLE MODE (session.mode 'puzzle'): a "Puzzles" title-menu button →
+      screen-puzzles (cards: a Mate-in-N / Win-material badge, title, blurb, side to
+      move, a ✓ Solved tick). Clicking loads the FEN (startGame branches to loadFEN),
+      humanColor = the solver's side, aiProfile = Magnus. The objective is announced
+      in the speech-bubble toast.
+        * INPUT: commitLocalMove routes puzzle moves to commitPuzzleMove, which
+          PRE-VALIDATES before any animation — it accepts only the scripted solution
+          move (or, for mate puzzles, any alternative immediate checkmate); a wrong
+          try is waved off with a UI.puzzleNudge and never executed (so no awkward
+          mid-battle undo).
+        * RESOLUTION: afterMoveResolve's non-terminal tail calls App.puzzleTail(),
+          which advances a ply index, plays the scripted defence (App.puzzleOpponentReply,
+          forced in every mate line; one sound defence in the win lines; engine
+          fallback), or declares the puzzle solved when the solver's line is complete.
+          A checkmate routes through the existing finale; endGame intercepts puzzle
+          mode and shows a "Puzzle Solved!" card (App.finishPuzzle) — NOT the rated
+          game-over flow. The solving capture/mate plays the existing battle scene.
+        * RESULT CARD reuses #screen-gameover with relabelled buttons ("Puzzle List"
+          / "Next Puzzle →" or "Back to List"); rematch()→nextPuzzle, quit→the list.
+          Clocks don't tick in puzzle mode; ratings/progression are never touched.
+    - DEV HOOKS (js/main.js debugHook): ?screen=puzzles opens the list; ?puzzle=<id>
+      loads a puzzle straight onto the board (for shots); &solve=1[&warp=N] auto-plays
+      the solution (App.autoSolvePuzzle) to exercise the whole pipeline. Strip for
+      release like the other hooks.
+    - SCRIPT ORDER: pgn.js after chess.js (it replays via MG.Chess); puzzles.js after
+      opponents.js and before ui.js (ui.js's list uses MG.Puzzles).
+    - NOT TOUCHED: ai.js/battle.js/board.js/sprites.js/fx.js/net.js/audio.js/rating.js/
+      profiles.js/opponents.js unchanged. chess.js gained ONLY the additive FEN
+      methods (all 26 prior assertions still green).
 
 V1.9 CHANGES — SINGLE-PLAYER PROGRESSION (CAREER LADDER)
   (verified: chess 26/26; rating 20/20; a dedicated progression harness 24/24 —
@@ -456,8 +540,9 @@ V1.1 CHANGES (all verified: 26/26 tests, soak 36/36, headless screenshots)
     called from App.resize()).
 
 STATUS: COMPLETE & VERIFIED v1.1
-  - Chess engine: full rules (castle/ep/promo/all draws). 26 unit tests pass,
-    perft(4)=197281 exact. Run: node tests/test_chess.js
+  - Chess engine: full rules (castle/ep/promo/all draws) + a FEN loader/exporter
+    (v2.0). 34 unit tests pass (26 original + 8 FEN, incl. Kiwipete perft from a
+    loaded FEN), perft(4)=197281 exact. Run: node tests/test_chess.js
   - AI: negamax+alpha-beta+quiescence (fail-soft — important, a fail-hard
     quiescence bug was fixed where narrowed root windows returned beta as
     exact and tied with mate scores). As of v1.8 the engine is PROFILE-DRIVEN
@@ -501,9 +586,11 @@ DEV HOOKS (js/main.js debugHook — strip for release)
   ?shot=castle&c=w|b&alt=N  | ?shot=ep&alt=N  (en passant)
   ?shot=star&c=w|b&promo=Q|R|B|N  | ?shot=end&kind=stalemate|draw&alt=N
   ?shot=capture | ?shot=mate (scripted games) | ?shot=promo | ?shot=gameover
-  ?screen=online | ?screen=profiles | ?screen=setup | ?screen=career (opens that
-    menu screen; ?screen=setup is handy for shooting the opponent picker;
+  ?screen=online | ?screen=profiles | ?screen=setup | ?screen=career | ?screen=puzzles
+    (opens that menu screen; ?screen=setup is handy for shooting the opponent picker;
     ?screen=career&demo=1 seeds a sample climb so the shot shows all rung states)
+  ?puzzle=<id> loads that puzzle onto the board (e.g. ?puzzle=rook-roller);
+    add &solve=1[&warp=N] to auto-play its solution through the live pipeline
   ?shot=soak — runs EVERY choreography take AND every set-piece scene to
     completion, logs "SOAK DONE 88/88" to console (use --enable-logging=
     stderr). Run after ANY change to sprites.js/battle.js/fx.js. Counts come
@@ -516,7 +603,13 @@ DEV HOOKS (js/main.js debugHook — strip for release)
     "file://$PWD/index.html?shot=battle&att=R&def=R&ff=4"
 
 KNOWN MINOR ITEMS / POLISH BACKLOG (none blocking)
-  - No hint button, no PGN export.
+  - No hint button. (PGN export/import + a Puzzles mode landed in v2.0.)
+  - PGN export from a position that did NOT start from the standard setup (i.e. a
+    loaded puzzle) would need [FEN]/[SetUp] tags emitted automatically; import already
+    honours a [FEN] tag, and the live game always starts standard, so this is unused.
+  - The puzzle defence is scripted from each solution line (forced in the mate lines;
+    one sound line in the win tactics) rather than free engine play — deliberate, so
+    the trainer stays predictable. A larger/loadable puzzle book is an easy follow-up.
   - Title wordmark uses system Georgia; a custom (licensed/original) display
     font would elevate it.
   - ENGINE STRENGTH CAP (~2010 Elo): the persona ladder is honest — it stops at

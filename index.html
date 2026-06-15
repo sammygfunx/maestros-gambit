@@ -28,6 +28,7 @@
       <div class="menu-buttons">
         <button class="btn btn-big" id="btn-play">Take the Stage</button>
         <button class="btn" id="btn-career">Career Ladder</button>
+        <button class="btn" id="btn-puzzles">Puzzles</button>
         <button class="btn" id="btn-howto">How to Play</button>
         <button class="btn" id="btn-profiles">Profiles</button>
         <button class="btn" id="btn-options">Options</button>
@@ -156,6 +157,26 @@
       <p class="hint-text">Tip: a bundled synth soundtrack loops during games — pick a track above.
       Load your own audio file to override it, or Clear to return to the bundled set.<br>
       During a battle scene, click or press Esc to skip ahead.</p>
+
+      <div class="opt-row opt-pgn-row">
+        <label>Games (PGN)</label>
+        <div class="opt-pgn">
+          <div class="opt-pgn-actions">
+            <button class="btn btn-small" id="btn-opt-copy-pgn" title="Copy the most recent game's PGN">Copy Last Game</button>
+            <button class="btn btn-small" id="btn-opt-download-pgn" title="Save the most recent game as a .pgn file">Download Last Game</button>
+          </div>
+          <textarea id="pgn-paste" class="pgn-paste" rows="4" spellcheck="false" autocomplete="off"
+            placeholder="Paste a PGN here, then Load to view the game on the board…"></textarea>
+          <div class="opt-pgn-actions">
+            <button class="btn btn-small" id="btn-opt-load-pgn">Load PGN</button>
+            <span class="opt-val" id="pgn-status"></span>
+          </div>
+        </div>
+      </div>
+      <p class="hint-text">Export the last game you played, or paste a PGN to replay it on the
+      board. Standard PGN: a Seven-Tag header plus numbered moves; comments, variations and
+      annotations are ignored on import.</p>
+
       <div class="menu-buttons">
         <button class="btn" id="btn-options-back">Back</button>
       </div>
@@ -242,6 +263,18 @@
       <div class="career-list" id="career-list"><!-- filled by ui.js from MG.Opponents --></div>
       <div class="menu-buttons">
         <button class="btn" id="btn-career-back">Back</button>
+      </div>
+    </div>
+
+    <!-- ====== PUZZLES (mate-in-N / win material) ====== -->
+    <div id="screen-puzzles" class="screen hidden">
+      <h2 class="screen-title">Puzzles</h2>
+      <p class="hint-text puzzles-intro">Solve a position from a single move to a forced mate.
+        Find the winning move — the defence is played for you, and the stage performs your
+        finishing blow. Wrong tries are waved off so you can try again.</p>
+      <div class="puzzle-list" id="puzzle-list"><!-- filled by ui.js from MG.Puzzles --></div>
+      <div class="menu-buttons">
+        <button class="btn" id="btn-puzzles-back">Back</button>
       </div>
     </div>
 
@@ -369,6 +402,10 @@
         <p id="go-banter" class="go-banter hidden"></p>
         <div id="go-progress" class="go-progress hidden"></div>
         <p id="go-rating" class="go-rating hidden"></p>
+        <div class="go-pgn" id="go-pgn">
+          <button class="btn btn-small" id="btn-go-copy-pgn" title="Copy this game's PGN">Copy PGN</button>
+          <button class="btn btn-small" id="btn-go-download-pgn" title="Save this game as a .pgn file">Download .pgn</button>
+        </div>
         <div class="menu-buttons row">
           <button class="btn" id="btn-go-menu">Main Menu</button>
           <button class="btn btn-big" id="btn-go-rematch">Encore (Rematch)</button>
@@ -384,12 +421,14 @@
 <script src="js/sprites.js"></script>
 <script src="js/chess.js"></script>
 <script src="js/ai.js"></script>
+<script src="js/pgn.js"></script>
 <script src="js/fx.js"></script>
 <script src="js/battle.js"></script>
 <script src="js/board.js"></script>
 <script src="js/rating.js"></script>
 <script src="js/profiles.js"></script>
 <script src="js/opponents.js"></script>
+<script src="js/puzzles.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/net.js"></script>
 <script src="js/main.js"></script>

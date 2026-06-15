@@ -366,6 +366,72 @@
       return s;
     }
 
+    /* ---------- FEN (Forsyth–Edwards Notation) ----------
+       Minimal but complete loader/exporter so positions (e.g. puzzles) can be
+       defined by FEN. Parses piece placement, side to move, castling rights,
+       the en-passant target, and the halfmove/fullmove clocks. */
+    _algToIdx(s) {
+      const file = FILES.indexOf(s[0]);
+      const rank = parseInt(s[1], 10);
+      if (file < 0 || !(rank >= 1 && rank <= 8)) return -1;
+      return (8 - rank) * 8 + file;
+    }
+
+    loadFEN(fen) {
+      const parts = String(fen).trim().split(/\s+/);
+      const placement = parts[0];
+      const rows = placement.split('/');
+      if (rows.length !== 8) throw new Error('Bad FEN: expected 8 ranks');
+      const board = new Array(64).fill(null);
+      for (let r = 0; r < 8; r++) {
+        let c = 0;
+        for (const ch of rows[r]) {
+          if (ch >= '1' && ch <= '8') { c += +ch; continue; }
+          const color = ch === ch.toUpperCase() ? 'w' : 'b';
+          const t = ch.toUpperCase();
+          if (!'PNBRQK'.includes(t)) throw new Error('Bad FEN: piece "' + ch + '"');
+          if (c > 7) throw new Error('Bad FEN: rank overflow');
+          board[idx(r, c)] = { t, c: color };
+          c++;
+        }
+      }
+      this.board = board;
+      this.turn = parts[1] === 'b' ? 'b' : 'w';
+      const cr = parts[2] || '-';
+      this.castling = {
+        wK: cr.includes('K'), wQ: cr.includes('Q'),
+        bK: cr.includes('k'), bQ: cr.includes('q'),
+      };
+      this.ep = (parts[3] && parts[3] !== '-') ? this._algToIdx(parts[3]) : -1;
+      this.halfmove = parts[4] != null ? (parseInt(parts[4], 10) || 0) : 0;
+      this.fullmove = parts[5] != null ? (parseInt(parts[5], 10) || 1) : 1;
+      this.history = [];
+      this.sanHistory = [];
+      this.repCount = {};
+      this._bumpRep();
+      return this;
+    }
+
+    fen() {
+      let placement = '';
+      for (let r = 0; r < 8; r++) {
+        let empty = 0, row = '';
+        for (let c = 0; c < 8; c++) {
+          const p = this.board[idx(r, c)];
+          if (!p) { empty++; continue; }
+          if (empty) { row += empty; empty = 0; }
+          row += p.c === 'w' ? p.t : p.t.toLowerCase();
+        }
+        if (empty) row += empty;
+        placement += row + (r < 7 ? '/' : '');
+      }
+      let cr = (this.castling.wK ? 'K' : '') + (this.castling.wQ ? 'Q' : '') +
+        (this.castling.bK ? 'k' : '') + (this.castling.bQ ? 'q' : '');
+      if (!cr) cr = '-';
+      const ep = this.ep >= 0 ? sqName(this.ep) : '-';
+      return [placement, this.turn, cr, ep, this.halfmove, this.fullmove].join(' ');
+    }
+
     /* ---------- helpers for UI / AI ---------- */
     pieceAt(sq) { return this.board[sq]; }
     materialOf(color) {

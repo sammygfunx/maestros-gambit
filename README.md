@@ -51,6 +51,13 @@ is generated procedurally at runtime.
   Progress is saved per profile (Guest tracks nothing). A **Free Play / All
   Unlocked** toggle is always available, so casual players are never hard-gated, and
   the classic setup-screen opponent picker stays fully open too.
+- **Puzzles** — a curated set of training positions: mate-in-1, -2 and -3 plus a
+  couple of win-the-material tactics. Find the winning move and the stage performs
+  your finishing blow (the defence is played for you); wrong tries are waved off so
+  you can try again. Reached from the title menu.
+- **PGN export & import** — copy or download any finished game as a standard
+  **`.pgn`** file (game-over card or Options), or paste a PGN to replay it on the
+  board. Useful for sharing games or studying them in another tool.
 - **Banter** — each persona has a few short, PG, orchestra-flavoured lines: a taunt
   pops up when the CPU snatches your queen or rook, and a send-off appears on the
   game-over card. Toggle it in Options (*Banter: On/Off*).
@@ -125,8 +132,10 @@ index.html        page shell + all DOM screens
 css/style.css     menus/HUD styling
 js/audio.js       WebAudio synth engine: SFX, stingers & bundled soundtrack
 js/facts.js       100 "did you know?" orchestral facts for the connecting screen
-js/chess.js       rules engine (no rendering; unit-tested)
+js/chess.js       rules engine + FEN loader/exporter (no rendering; unit-tested)
 js/ai.js          negamax + quiescence AI driven by a strength profile
+js/pgn.js         PGN export/import (MG.PGN; DOM-free, unit-tested)
+js/puzzles.js     curated mate-in-N / win-material puzzle set (MG.Puzzles)
 js/opponents.js   the rated CPU persona ladder (MG.Opponents) + banter + progression rules
 js/sprites.js     procedural pixel-art characters, rigs & poses
 js/fx.js          particles: notes, rings, lightning, piano-drop, curtain
@@ -138,8 +147,9 @@ js/ui.js          DOM glue: screens, options, HUD, dialogs, online lobby, profil
 js/net.js         online client: room-code WebSocket relay glue
 js/main.js        game controller / state machine / render loop
 server/relay/     standalone Node WebSocket relay for Online Duel + its README
-tests/            node tests/test_chess.js  (26 assertions incl. perft)
+tests/            node tests/test_chess.js  (34 assertions incl. perft + FEN)
                   node tests/test_rating.js (Elo + the Glickman Glicko-2 example)
+                  node tests/test_pgn.js    (PGN export/import round-trips)
                   node tests/test_net.js    (two clients play through the relay)
 shots/            reference screenshots taken during development (not in repo; regenerate with ?shot=)
 ```
@@ -153,6 +163,7 @@ shots/            reference screenshots taken during development (not in repo; r
 `SOAK DONE 88/88`). `?screen=online` opens the online lobby directly;
 `?screen=profiles` opens the player-profiles screen; `?screen=setup` opens the
 setup screen (handy for the opponent picker); `?screen=career` opens the Career
-Ladder (`&demo=1` seeds a sample climb so the shot shows all rung states). `&warp=N`
-multiplies game speed. Remove `debugHook()` in `main.js` to strip these from a
-release build.
+Ladder (`&demo=1` seeds a sample climb so the shot shows all rung states);
+`?screen=puzzles` opens the Puzzles list and `?puzzle=<id>` loads a puzzle straight
+onto the board (`&solve=1` auto-plays its solution). `&warp=N` multiplies game speed.
+Remove `debugHook()` in `main.js` to strip these from a release build.

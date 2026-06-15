@@ -7,7 +7,7 @@
   const MG = (globalThis.MG = globalThis.MG || {});
   const $ = (id) => document.getElementById(id);
 
-  const SCREENS = ['screen-title', 'screen-setup', 'screen-options', 'screen-howto', 'screen-credits', 'screen-online', 'screen-profiles', 'screen-career'];
+  const SCREENS = ['screen-title', 'screen-setup', 'screen-options', 'screen-howto', 'screen-credits', 'screen-online', 'screen-profiles', 'screen-career', 'screen-puzzles'];
 
   const UI = {
     handlers: {},
@@ -28,6 +28,8 @@
       nav('btn-credits', () => this.show('screen-credits'));
       nav('btn-career', () => this.openCareer());
       nav('btn-career-back', () => this.show('screen-title'));
+      nav('btn-puzzles', () => this.openPuzzles());
+      nav('btn-puzzles-back', () => this.show('screen-title'));
       nav('btn-profiles', () => this.openProfiles());
       nav('title-profile', () => this.openProfiles());
       nav('setup-profile', () => this.openProfiles('screen-setup'));
@@ -131,6 +133,13 @@
       nav('btn-clock', () => handlers.toggleClock());
       nav('btn-go-menu', () => handlers.quitToMenu());
       nav('btn-go-rematch', () => handlers.rematch());
+
+      /* ---- PGN export / import ---- */
+      nav('btn-go-copy-pgn', () => this.copyPgn());
+      nav('btn-go-download-pgn', () => this.downloadPgn());
+      nav('btn-opt-copy-pgn', () => this.copyPgn());
+      nav('btn-opt-download-pgn', () => this.downloadPgn());
+      nav('btn-opt-load-pgn', () => this.loadPgnFromInput());
 
       /* ---- confirm dialog ---- */
       const cfClose = (val) => {
@@ -441,6 +450,108 @@
       }
     },
 
+    /* ---- puzzles (mate-in-N / win material) ---- */
+    openPuzzles() {
+      this.buildPuzzles();
+      this.show('screen-puzzles');
+    },
+    buildPuzzles() {
+      const host = $('puzzle-list');
+      if (!host) return;
+      this.solvedPuzzles = this.solvedPuzzles || {};
+      host.innerHTML = '';
+      for (const p of MG.Puzzles.LIST) {
+        const solved = !!this.solvedPuzzles[p.id];
+        const card = document.createElement('button');
+        card.type = 'button';
+        card.className = 'puzzle-card' + (solved ? ' solved' : '');
+        card.dataset.id = p.id;
+
+        const badge = document.createElement('div');
+        badge.className = 'pz-badge' + (p.kind === 'win' ? ' win' : '');
+        badge.textContent = MG.Puzzles.objective(p);
+        card.appendChild(badge);
+
+        const main = document.createElement('div');
+        main.className = 'pz-main';
+        main.innerHTML = `<div class="pz-title">${this._esc(p.title)}</div>` +
+          `<div class="pz-blurb">${this._esc(p.blurb)}</div>`;
+        card.appendChild(main);
+
+        const side = document.createElement('div');
+        side.className = 'pz-side';
+        side.innerHTML = (solved ? '<span class="pz-check">✓ Solved</span><br>' : '') +
+          `${MG.Puzzles.sideName(p)} to move`;
+        card.appendChild(side);
+
+        card.addEventListener('click', () => {
+          MG.Audio.uiClick();
+          this.handlers.startPuzzle(p.id);
+        });
+        host.appendChild(card);
+      }
+    },
+    markPuzzleSolved(id) {
+      this.solvedPuzzles = this.solvedPuzzles || {};
+      this.solvedPuzzles[id] = true;
+    },
+    // a brief "try again" prompt for a wrong puzzle move (reuses the toast)
+    puzzleNudge(text) { this.showBanter('Puzzle', text); },
+    // the solve/fail card — reuses the game-over modal with puzzle-specific labels
+    showPuzzleResult(title, sub, hasNext) {
+      $('go-title').textContent = title;
+      $('go-sub').textContent = sub;
+      ['go-banter', 'go-progress', 'go-rating', 'go-pgn'].forEach((id) => $(id).classList.add('hidden'));
+      $('btn-go-menu').textContent = 'Puzzle List';
+      $('btn-go-rematch').textContent = hasNext ? 'Next Puzzle →' : 'Back to List';
+      this.hideBanter();
+      $('screen-gameover').classList.remove('hidden');
+    },
+
+    /* ---- PGN export / import ---- */
+    copyPgn() {
+      const pgn = this.handlers.getLastPgn ? this.handlers.getLastPgn() : '';
+      if (!pgn) { this.setPgnStatus('No finished game to export yet.', 'warn'); return; }
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(pgn).then(
+          () => this.setPgnStatus('PGN copied to the clipboard.', 'ok'),
+          () => this.setPgnStatus('Copy failed — your browser blocked it.', 'warn'));
+      } else {
+        this.setPgnStatus('Clipboard unavailable — use Download instead.', 'warn');
+      }
+    },
+    downloadPgn() {
+      const pgn = this.handlers.getLastPgn ? this.handlers.getLastPgn() : '';
+      if (!pgn) { this.setPgnStatus('No finished game to export yet.', 'warn'); return; }
+      try {
+        const blob = new Blob([pgn], { type: 'application/x-chess-pgn' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'maestros-gambit-' + MG.PGN.todayPGN().replace(/\./g, '') + '.pgn';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        this.setPgnStatus('Saved a .pgn file.', 'ok');
+      } catch (e) { this.setPgnStatus('Download failed.', 'warn'); }
+    },
+    loadPgnFromInput() {
+      const text = ($('pgn-paste').value || '').trim();
+      if (!text) { this.setPgnStatus('Paste a PGN first.', 'warn'); return; }
+      const res = this.handlers.loadPgn ? this.handlers.loadPgn(text) : { ok: false, error: 'unavailable' };
+      if (res && res.ok) {
+        MG.Audio.uiClick();
+        this.setPgnStatus('', '');
+      } else {
+        this.setPgnStatus((res && res.error) || 'Could not load that PGN.', 'warn');
+      }
+    },
+    setPgnStatus(text, cls) {
+      const el = $('pgn-status');
+      if (!el) return;
+      el.textContent = text;
+      el.className = 'opt-val' + (cls ? ' ' + cls : '');
+    },
+
     /* a CPU persona's trash-talk speech bubble; auto-fades. Honours the
        Banter toggle (callers pass already-resolved text, so this just shows it) */
     showBanter(who, line) {
@@ -684,6 +795,10 @@
     showGameOver(title, sub, ratingHtml, banterText, progressHtml) {
       $('go-title').textContent = title;
       $('go-sub').textContent = sub;
+      // restore the standard labels + PGN actions (the puzzle card repurposes them)
+      $('btn-go-menu').textContent = 'Main Menu';
+      $('btn-go-rematch').textContent = 'Encore (Rematch)';
+      $('go-pgn').classList.remove('hidden');
       const gb = $('go-banter');
       if (banterText) { gb.textContent = banterText; gb.classList.remove('hidden'); }
       else gb.classList.add('hidden');

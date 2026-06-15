@@ -143,6 +143,28 @@ console.log('— threefold repetition —');
   ok(g.status() === 'draw3', 'threefold repetition detected');
 }
 
+console.log('— FEN round-trip —');
+{
+  const start = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+  const g = new MG.Chess();
+  ok(g.fen() === start, 'initial position exports to the start FEN');
+  const g2 = new MG.Chess().loadFEN(start);
+  ok(g2.fen() === start, 'start FEN round-trips');
+  // a midgame FEN: pieces + reduced castling rights + nonzero clocks
+  const mid = 'r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/5N2/PPPP1PPP/RNBQ1RK1 w kq - 4 5';
+  ok(new MG.Chess().loadFEN(mid).fen() === mid, 'a midgame FEN round-trips');
+  // en-passant target parses and yields a legal ep capture
+  const ge = new MG.Chess().loadFEN('rnbqkbnr/ppp1p1pp/8/3pPp2/8/8/PPPP1PPP/RNBQKBNR w KQkq f6 0 3');
+  ok(ge.ep === MG.ChessUtil.idx(2, 5), 'en-passant target parsed (f6)');
+  ok(ge.legalMoves().some((mm) => mm.flags === 'ep'), 'ep capture available from a loaded FEN');
+  // "Kiwipete" — exercises castling + many slider/pawn paths through move-gen
+  const kiwi = 'r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1';
+  const gk = new MG.Chess().loadFEN(kiwi);
+  ok(gk.fen() === kiwi, 'Kiwipete FEN round-trips');
+  ok(perft(gk, 1) === 48, 'Kiwipete perft(1) = 48');
+  ok(perft(gk, 2) === 2039, 'Kiwipete perft(2) = 2039');
+}
+
 console.log('— AI sanity —');
 {
   for (const lvl of [0, 1, 2]) {

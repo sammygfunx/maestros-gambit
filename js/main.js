@@ -19,6 +19,8 @@
     board: null,
     battle: null,
     session: null,          // {mode, opponent, aiProfile, humanColor, battles, hostColor}
+    puzzle: null,           // active puzzle state {def, index, side, idx, solved}
+    lastPgn: '',            // PGN of the most recently finished game (for export)
     busy: false,            // an animation/battle/AI is in flight
     over: false,
     remoteQueue: [],        // online: opponent moves awaiting a free moment
@@ -56,6 +58,10 @@
         hostMatch: (side) => this.hostMatch(side),
         joinMatch: (code) => this.joinMatch(code),
         leaveLobby: () => this.leaveLobby(),
+        startPuzzle: (id) => this.startPuzzle(id),
+        nextPuzzle: () => this.nextPuzzle(),
+        getLastPgn: () => this.lastPgn,
+        loadPgn: (text) => this.loadPgnGame(text),
       });
       // reflect loaded prefs in the setup screen
       MG.UI.applyMode(MG.UI.setup.mode);
@@ -119,6 +125,17 @@
         return;
       }
       if (screen === 'setup') { MG.UI.show('screen-setup'); return; }
+      if (screen === 'puzzles') { MG.UI.openPuzzles(); return; }
+      // ?puzzle=<id> loads a puzzle straight onto the board (handy for shots);
+      // &solve=1 auto-plays the solution (used to verify the full pipeline)
+      const puzzleId = q.get('puzzle');
+      if (puzzleId && MG.Puzzles.has(puzzleId)) {
+        MG.Audio.enabled = false;
+        if (q.get('solve')) { MG.UI.setup.battles = 'off'; this.dtMult = parseFloat(q.get('warp')) || 12; }
+        this.startPuzzle(puzzleId);
+        if (q.get('solve')) this.autoSolvePuzzle();
+        return;
+      }
       const shot = q.get('shot');
       if (!shot) return;
       MG.Audio.enabled = false;
@@ -302,7 +319,9 @@
     // advance the active side's clock; frozen during animations/battle/game-over
     updateClock(dt) {
       if (!this.clock) return;
-      const ticking = this.session && !this.over && this.state === 'board' && !this.busy;
+      // puzzles aren't timed — the clock would just tick distractingly
+      const ticking = this.session && this.session.mode !== 'puzzle' &&
+        !this.over && this.state === 'board' && !this.busy;
       const active = ticking ? this.game.turn : null;
       if (active !== this._clockActive) {
         this._clockActive = active;
@@ -323,13 +342,17 @@
       // the CPU opponent is one of the rated personas (js/opponents.js); other
       // modes don't use one. aiProfile is what MG.AI searches with.
       const persona = setup.mode === 'cpu' ? MG.Opponents.get(setup.opponent) : null;
+      const puzzleDef = setup.mode === 'puzzle' ? MG.Puzzles.get(setup.puzzleId) : null;
       const session = {
         mode: setup.mode,
         opponent: persona,
-        aiProfile: persona || 1,           // fallback profile (unused off-CPU)
+        // puzzles let the engine answer with a strong defence (forced anyway);
+        // other modes use the persona profile (or a fallback off-CPU)
+        aiProfile: setup.mode === 'puzzle' ? MG.Opponents.get('magnus') : (persona || 1),
         battles: setup.battles === 'on',
         humanColor: setup.mode === '2p' ? null
           : setup.mode === 'online' ? setup.onlineColor
+          : setup.mode === 'puzzle' ? (puzzleDef ? puzzleDef.sideToMove : 'w')
           : setup.side === 'r' ? (Math.random() < 0.5 ? 'w' : 'b') : setup.side,
       };
       if (setup.mode === 'online') {
@@ -339,7 +362,15 @@
       }
       this.session = session;
       this.remoteQueue = [];
-      this.game.reset();
+      // puzzles load a fixed position from FEN; everything else starts fresh
+      if (setup.mode === 'puzzle' && puzzleDef) {
+        this.game.loadFEN(puzzleDef.fen);
+        this.puzzle = { def: puzzleDef, index: MG.Puzzles.indexOf(puzzleDef.id),
+          side: puzzleDef.sideToMove, idx: 0, solved: false };
+      } else {
+        this.game.reset();
+        this.puzzle = null;
+      }
       this.capturedByWhite = [];
       this.capturedByBlack = [];
       this.board.selected = -1;
@@ -355,6 +386,7 @@
       const youTag = (c) => {
         if (session.mode === '2p') return '';
         if (session.mode === 'online') return session.humanColor === c ? ' (You)' : ' (Opponent)';
+        if (session.mode === 'puzzle') return session.humanColor === c ? ' (You)' : ' (Defense)';
         if (session.humanColor === c) return ' (You)';
         return persona ? ` (${persona.name})` : ' (Maestro CPU)';
       };
@@ -376,11 +408,187 @@
       MG.Audio.playMusic();
       MG.Audio.castle(); // opening flourish
 
+      // announce the puzzle objective (reuses the speech-bubble toast)
+      if (this.puzzle) MG.UI.showBanter(MG.Puzzles.objective(this.puzzle.def), this.puzzle.def.blurb);
+
       if (this.isCpuTurn()) this.cpuMove();
+    },
+
+    /* ============== puzzles (mate-in-N / win material) ============== */
+    startPuzzle(id) {
+      const def = MG.Puzzles.get(id);
+      if (!def) return;
+      this.over = false;
+      this.startGame({ mode: 'puzzle', puzzleId: id, side: def.sideToMove,
+        battles: MG.UI.setup.battles });
+    },
+
+    // advance to the next puzzle in the list (or back to the list if it was the last)
+    nextPuzzle() {
+      const next = (this.puzzle ? this.puzzle.index : -1) + 1;
+      if (next >= 0 && next < MG.Puzzles.LIST.length) {
+        this.startPuzzle(MG.Puzzles.LIST[next].id);
+      } else {
+        this.over = false; this.session = null; this.puzzle = null;
+        MG.Audio.stopBoardMusic();
+        MG.UI.openPuzzles();
+      }
+    },
+
+    /* dev: auto-play a puzzle's solution (the player's plies) to exercise the
+       whole pipeline; the defence answers itself between moves. */
+    autoSolvePuzzle() {
+      const def = this.puzzle.def;
+      const playerMoves = def.solutionSANs.filter((_, i) => i % 2 === 0);
+      let i = 0;
+      const tick = setInterval(() => {
+        if (this.over || i >= playerMoves.length) { clearInterval(tick); return; }
+        if (this.busy || this.state !== 'board' || !this.isHumanTurn()) return;
+        const want = playerMoves[i].replace(/[+#]/g, '');
+        const m = this.game.legalMoves().find((x) => this.game.toSAN(x) === want);
+        if (!m) { clearInterval(tick); console.error('autosolve: no move ' + playerMoves[i]); return; }
+        i++;
+        this.commitLocalMove(m);
+      }, 200);
+    },
+
+    // a move the solver attempted: accept only the solution move (or any
+    // alternative immediate mate); reject anything else with a nudge.
+    commitPuzzleMove(m) {
+      const p = this.puzzle;
+      const expected = (p.def.solutionSANs[p.idx] || '').replace(/[+#]/g, '');
+      const san = this.game.toSAN(m).replace(/[+#]/g, '');
+      let okMove = san === expected;
+      if (!okMove && p.def.kind === 'mate') {
+        this.game._apply(m);
+        okMove = this.game.status() === 'checkmate';
+        this.game._unapply();
+      }
+      if (!okMove) {
+        MG.UI.puzzleNudge('Not the winning move — try again.');
+        MG.Audio.uiBack();
+        this.deselect();
+        return;
+      }
+      this.executeMove(m); // resolution continues in afterMoveResolve → puzzleTail
+    },
+
+    // called once a non-terminal puzzle move resolves: either play the scripted
+    // defence, or (when the solver's line is complete) declare the puzzle solved.
+    puzzleTail() {
+      const p = this.puzzle;
+      if (!p) return;
+      const justMoved = this.game.turn === 'w' ? 'b' : 'w';
+      p.idx++;                                   // consume the ply that just resolved
+      if (p.idx >= p.def.solutionSANs.length) { this.finishPuzzle(true); return; }
+      if (justMoved === p.side) this.puzzleOpponentReply();  // solver moved → defence answers
+      // else: the defence just moved → hand control back to the solver (wait for input)
+    },
+
+    // play the scripted defensive reply (forced in every mate line; one sound
+    // defence in the win lines). Falls back to the engine if the script misses.
+    puzzleOpponentReply() {
+      const p = this.puzzle;
+      const want = (p.def.solutionSANs[p.idx] || '').replace(/[+#]/g, '');
+      const m = this.game.legalMoves().find((x) => this.game.toSAN(x) === want);
+      this.busy = true;
+      if (m) {
+        setTimeout(() => { this.busy = false; this.executeMove(m); }, 380);
+      } else {
+        MG.AI.chooseMoveAsync(this.game, this.session.aiProfile, (em) => {
+          this.busy = false;
+          if (em && !this.over) this.executeMove(em);
+        });
+      }
+    },
+
+    finishPuzzle(success) {
+      if (this.over) return;
+      this.over = true;
+      this.busy = false;
+      const p = this.puzzle;
+      if (success) {
+        if (p) { p.solved = true; MG.UI.markPuzzleSolved(p.def.id); }
+        if (p && p.def.kind === 'win') MG.Audio.fanfareWin(); // mates already cued the finale
+      } else {
+        MG.Audio.dirge();
+      }
+      const title = success ? 'Puzzle Solved!' : 'Not Quite';
+      const sub = success
+        ? (p && p.def.kind === 'mate' ? 'Checkmate, exactly as written — bravo!'
+            : 'The material is yours. A clean strike.')
+        : 'That line doesn’t force it. Take another look.';
+      const hasNext = !!p && p.index < MG.Puzzles.LIST.length - 1;
+      setTimeout(() => MG.UI.showPuzzleResult(title, sub, hasNext), success ? 700 : 250);
+    },
+
+    /* Load a pasted PGN into a viewable two-player game at its final position
+       (reuses the board pipeline). Returns {ok} or {ok:false, error}. */
+    loadPgnGame(text) {
+      let res;
+      try { res = MG.PGN.import(text); }
+      catch (e) { return { ok: false, error: e.message || 'Could not parse PGN' }; }
+
+      this.session = { mode: '2p', opponent: null, aiProfile: 1, battles: false, humanColor: null };
+      this.puzzle = null;
+      this.remoteQueue = [];
+      this.game = res.game;
+      // rebuild the capture trays from the replayed history
+      this.capturedByWhite = []; this.capturedByBlack = [];
+      for (const u of this.game.history) {
+        const victim = u.taken || (u.epTaken && u.epTaken.piece);
+        if (!victim) continue;
+        if (u.moved.c === 'w') this.capturedByWhite.push(victim.t);
+        else this.capturedByBlack.push(victim.t);
+      }
+      this.over = false;
+      this.busy = false;
+      this.ratedThisGame = true;          // a reviewed game never affects a rating
+      this.state = 'board';
+      this.board.selected = -1; this.board.legalTargets = []; this.board.lastMove = null;
+      this.board.checkSq = this.game.inCheck() ? this.game.kingSq(this.game.turn) : -1;
+      this.board.fxl.clear();
+
+      const wn = (res.headers.White || 'Ivory Philharmonic');
+      const bn = (res.headers.Black || 'Obsidian Philharmonic');
+      MG.UI.setNames(wn, bn);
+      document.getElementById('btn-undo').style.display = '';
+      this.session.battles = false;
+      MG.UI.setBattleBtn(false);
+      this.board.setView(MG.UI.settings.view || 'iso');
+      MG.UI.setViewBtn(this.board.view);
+      this.resetClock();
+      MG.UI.setClockBtn(MG.UI.settings.clockShown);
+      MG.UI.updateMoveList(this.game.sanHistory);
+      MG.UI.updateCaptured(this.capturedByWhite, this.capturedByBlack);
+      MG.UI.setTurn(this.game.turn, this.game.inCheck());
+      MG.UI.hideBanter();
+      MG.UI.showGame();
+      MG.UI.setHudProfile();
+      MG.Audio.resume();
+      return { ok: true, moves: res.moves.length };
+    },
+
+    /* Player/opponent names for a PGN header, from the team + persona/profile. */
+    buildPgnMeta() {
+      const s = this.session;
+      const prof = MG.Profiles.active();
+      const profName = prof.guest ? 'Guest' : prof.name;
+      const nameFor = (c) => {
+        const team = c === 'w' ? 'Ivory Philharmonic' : 'Obsidian Philharmonic';
+        if (!s || s.mode === '2p') return team;
+        if (s.mode === 'cpu') return s.humanColor === c
+          ? `${team} (${profName})`
+          : `${team} (${s.opponent ? s.opponent.name : 'Maestro CPU'})`;
+        if (s.mode === 'online') return s.humanColor === c ? `${team} (${profName})` : `${team} (Opponent)`;
+        return team;
+      };
+      return { white: nameFor('w'), black: nameFor('b'), date: MG.PGN.todayPGN() };
     },
 
     rematch() {
       if (!this.session) return;
+      if (this.session.mode === 'puzzle') { this.nextPuzzle(); return; }
       if (this.session.mode === 'online') {
         if (!MG.Net.paired) { this.quitToMenu(); return; }
         if (MG.Net.role === 'host') this.startHostRematch();
@@ -396,15 +604,18 @@
     },
 
     quitToMenu() {
+      const wasPuzzle = this.session && this.session.mode === 'puzzle';
       const doQuit = () => {
         this.state = 'menu';
         this.session = null;
+        this.puzzle = null;
         this.busy = false;
         this.remoteQueue = [];
         MG.Net.leave(); // closing the socket lets the opponent know we left
         MG.Audio.stopBoardMusic();
         MG.UI.hideBanter();
-        MG.UI.show('screen-title');
+        if (wasPuzzle) MG.UI.openPuzzles();   // puzzles return to their list
+        else MG.UI.show('screen-title');
       };
       if (this.session && !this.over) {
         MG.UI.askConfirm('Leave the stage?', 'The performance in progress will be abandoned.', 'Quit', 'Keep Playing')
@@ -572,6 +783,7 @@
     /* ============== the move pipeline ============== */
     /* a move the local player committed: relay it, then play it locally */
     commitLocalMove(m) {
+      if (this.session && this.session.mode === 'puzzle') { this.commitPuzzleMove(m); return; }
       if (this.session && this.session.mode === 'online') MG.Net.sendMove(m);
       this.executeMove(m);
     },
@@ -757,6 +969,7 @@
       MG.UI.setTurn(game.turn, inCheck);
       this.busy = false;
 
+      if (this.session.mode === 'puzzle') { this.puzzleTail(); return; }
       if (this.isCpuTurn()) this.cpuMove();
       else this.drainRemote();
     },
@@ -799,6 +1012,9 @@
     },
 
     endGame(title, sub, winner) {
+      // a puzzle reaching a terminal state (checkmate) is a solve, shown on its
+      // own result card — never the rated game-over flow.
+      if (this.session && this.session.mode === 'puzzle') { this.finishPuzzle(true); return; }
       this.over = true;
       this.busy = false;
       MG.UI.setTurn(this.game.turn, false, title);
@@ -816,6 +1032,12 @@
       const ratingHtml = this.applyRatingResult(winner);
       const progressHtml = this.applyProgression(winner);
       const banterText = this.cpuBanterForEnd(winner);
+      // capture the finished game as PGN for export (Copy/Download on the card + Options)
+      try {
+        const meta = this.buildPgnMeta();
+        meta.result = winner === 'w' ? '1-0' : winner === 'b' ? '0-1' : '1/2-1/2';
+        this.lastPgn = MG.PGN.export(this.game, meta);
+      } catch (e) { /* leave the previous lastPgn in place */ }
       setTimeout(() => MG.UI.showGameOver(title, sub, ratingHtml, banterText, progressHtml), 900);
     },
 

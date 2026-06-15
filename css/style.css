@@ -248,6 +248,56 @@ html, body {
 .career-rung.defeated .cr-status { color: #7fe3a0; }
 .career-rung.unlocked .cr-status { color: var(--gold-bright); }
 
+/* ---------- puzzles ---------- */
+.puzzles-intro { width: min(640px, 92vw); margin: 0 auto 14px; text-align: center; }
+.puzzle-list {
+  width: min(640px, 92vw); margin: 0 auto 14px;
+  max-height: 56vh; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 12px; background: rgba(14,8,18,.6);
+  border: 2px solid var(--gold-dim); border-radius: 10px;
+}
+.puzzle-card {
+  display: flex; align-items: center; gap: 12px;
+  padding: 9px 13px; width: 100%;
+  background: rgba(20,11,26,.85);
+  border: 2px solid #3a2342; border-radius: 9px;
+  color: var(--parchment); font-family: inherit; text-align: left;
+  cursor: pointer; transition: border-color .15s, background .15s;
+}
+.puzzle-card:hover { border-color: var(--gold-dim); background: #2c1834; }
+.puzzle-card.solved { border-color: #3f7d57; background: rgba(22,40,28,.5); }
+.puzzle-card .pz-badge {
+  flex: 0 0 auto; min-width: 78px; text-align: center;
+  font-family: 'Courier New', monospace; font-size: 13px; letter-spacing: .5px;
+  color: var(--velvet); background: var(--gold); border-radius: 6px;
+  padding: 4px 6px; font-weight: bold;
+}
+.puzzle-card .pz-badge.win { background: #8fb8e3; }
+.puzzle-card .pz-main { flex: 1; min-width: 0; }
+.puzzle-card .pz-title { font-size: 16px; color: var(--gold-bright); letter-spacing: .5px; }
+.puzzle-card .pz-blurb {
+  font-size: 13px; color: var(--gold-dim); margin-top: 2px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.puzzle-card .pz-side { flex: 0 0 auto; font-size: 12px; color: var(--gold-dim); letter-spacing: .5px; }
+.puzzle-card .pz-check { color: #7fe3a0; }
+
+/* ---------- PGN (game-over card + options) ---------- */
+.go-pgn { display: flex; gap: 8px; justify-content: center; margin: 10px 0 4px; flex-wrap: wrap; }
+.opt-pgn-row { align-items: flex-start; }
+.opt-pgn { flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.opt-pgn-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.pgn-paste {
+  width: 100%; box-sizing: border-box; resize: vertical;
+  background: rgba(12,7,16,.9); color: var(--parchment);
+  border: 1px solid var(--gold-dim); border-radius: 8px;
+  padding: 8px 10px; font-family: 'Courier New', monospace; font-size: 13px;
+}
+.pgn-paste:focus { outline: none; border-color: var(--gold); }
+#pgn-status.ok { color: #7fe3a0; }
+#pgn-status.warn { color: var(--accent); }
+
 /* ---------- options ---------- */
 .opt-row {
   display: flex; align-items: center; gap: 18px;
