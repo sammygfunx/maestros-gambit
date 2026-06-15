@@ -3,6 +3,20 @@
    Concert-hall palette: deep velvet, brass/gold, parchment.
    ============================================================ */
 
+/* ---------- bundled display fonts (SIL OFL 1.1, see fonts/) ----------
+   Loaded locally — no CDN — so the build stays file://-safe and offline.
+   Cinzel Decorative = the ornate wordmark; Cinzel = the refined headings. */
+@font-face {
+  font-family: 'Maestro Display';
+  src: url('../fonts/CinzelDecorative-Bold.ttf') format('truetype');
+  font-weight: 700; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'Maestro Heading';
+  src: url('../fonts/Cinzel-Variable.ttf') format('truetype');
+  font-weight: 400 700; font-style: normal; font-display: swap;
+}
+
 :root {
   --velvet: #1a0f1e;
   --velvet-2: #2a1530;
@@ -61,6 +75,8 @@ html, body {
 .hidden { display: none !important; }
 
 .screen-title {
+  font-family: 'Maestro Heading', Georgia, serif;
+  font-weight: 700;
   font-size: 42px;
   letter-spacing: 4px;
   color: var(--gold);
@@ -80,9 +96,11 @@ html, body {
   text-shadow: 0 0 30px rgba(255,217,138,.5), 0 4px 0 #000;
 }
 .game-title {
-  font-size: clamp(52px, 9vw, 96px);
-  line-height: .95;
-  letter-spacing: 10px;
+  font-family: 'Maestro Display', Georgia, serif;
+  font-weight: 700;
+  font-size: clamp(48px, 8.4vw, 88px);
+  line-height: 1.02;
+  letter-spacing: 4px;
   color: var(--gold);
   text-shadow:
     0 2px 0 #6b4a12, 0 4px 0 #3f2b09, 0 6px 0 #000,
@@ -433,6 +451,7 @@ html, body {
 .r-piece { color: var(--gold-bright); font-weight: bold; white-space: nowrap; }
 .r-role { color: var(--gold-dim); font-style: italic; white-space: nowrap; }
 .credits-body { text-align: center; }
+.credits-fonts { font-size: 13px; color: var(--gold-dim); font-style: italic; }
 
 /* ---------- player profiles ---------- */
 .profile-chip {
@@ -654,7 +673,7 @@ html, body {
   box-shadow: 0 12px 60px rgba(0,0,0,.7), 0 0 40px rgba(232,181,74,.15);
   animation: floatIn .35s ease-out;
 }
-.modal-card h3 { font-size: 34px; color: var(--gold); letter-spacing: 3px; margin-bottom: 10px; }
+.modal-card h3 { font-family: 'Maestro Heading', Georgia, serif; font-weight: 700; font-size: 34px; color: var(--gold); letter-spacing: 3px; margin-bottom: 10px; }
 .modal-card p { font-size: 17px; line-height: 1.5; color: var(--parchment); margin-bottom: 16px; }
 .promo-choices { display: flex; gap: 14px; justify-content: center; }
 .promo-btn {

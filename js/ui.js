@@ -12,12 +12,21 @@
   const UI = {
     handlers: {},
     settings: { sfx: 0.8, music: 0.6, speed: 1, view: 'iso', musicOn: true, track: 0, relayUrl: '',
-      clockMode: 'countdown', clockShown: true, banter: true, freePlay: false },
+      clockMode: 'countdown', clockShown: true, banter: true, freePlay: false, boardTheme: 'classic' },
+      // reduceMotion is intentionally absent from the defaults: on first run it is
+      // seeded from the OS prefers-reduced-motion setting (see init); thereafter the
+      // player's explicit Options choice persists.
     setup: { mode: 'cpu', opponent: MG.Opponents.DEFAULT_ID, side: 'w', battles: 'on' },
 
     init(handlers) {
       this.handlers = handlers;
       this.loadPrefs();
+      // Seed Reduce Motion from the OS preference the first time (no saved value yet),
+      // honouring window.matchMedia('(prefers-reduced-motion: reduce)').
+      if (this.settings.reduceMotion === undefined) {
+        this.settings.reduceMotion = !!(window.matchMedia &&
+          window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+      }
       MG.Profiles.load();
 
       /* ---- navigation ---- */
@@ -58,6 +67,15 @@
       this.segInit('seg-speed', (v) => { this.settings.speed = +v; this.savePrefs(); }, String(this.settings.speed));
       this.segInit('seg-clock', (v) => { this.settings.clockMode = v; this.savePrefs(); handlers.setClockMode(v); }, this.settings.clockMode);
       this.segInit('seg-banter', (v) => { this.settings.banter = v === 'on'; this.savePrefs(); }, this.settings.banter ? 'on' : 'off');
+      // Accessibility: Reduce Motion (calms menus + forces instant captures) and a
+      // colour-blind-safe Board Theme. Both persist in mg_prefs.
+      this.segInit('seg-motion', (v) => { this.settings.reduceMotion = v === 'on'; this.savePrefs(); },
+        this.settings.reduceMotion ? 'on' : 'off');
+      this.segInit('seg-theme', (v) => {
+        this.settings.boardTheme = v;
+        this.savePrefs();
+        if (handlers.setBoardTheme) handlers.setBoardTheme(v);
+      }, this.settings.boardTheme || 'classic');
       // Career: "Free Play" opens every rung so casual players are never hard-gated.
       this.segInit('seg-freeplay', (v) => {
         this.settings.freePlay = v === 'on';

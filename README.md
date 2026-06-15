@@ -91,6 +91,13 @@ is generated procedurally at runtime.
   **Elo** (the classic, default) or **Glicko-2** (the chess.com/Lichess style) —
   with USCF/ECF figures shown as estimates. Or choose **Guest** to play untracked.
   Your rating appears in the HUD and on the game-over card (e.g. *Elo 1200 → 1212*).
+- **Accessibility & presentation** — a **Reduce Motion** option (seeded from your
+  OS `prefers-reduced-motion` setting) calms the menu animations and resolves every
+  capture instantly; a **Board Theme** option adds a high-contrast, colour-blind-safe
+  blue-and-amber board alongside the classic ivory-and-ebony stage, with move markers
+  that are shape-coded (a ring for captures, a note for quiet moves) so nothing relies
+  on hue alone. Both choices persist. The wordmark and screen headings are set in the
+  **Cinzel** display family (bundled locally, SIL Open Font License — see *Credits*).
 - Settings persist between sessions (localStorage).
 
 ## Play online
@@ -120,8 +127,14 @@ Node process; the game itself stays dependency-free.
 
 ## Commercial-safety notes
 - The name, characters, story, and all visual/audio assets are original to this
-  project and generated from code — there are no third-party assets, fonts
-  (system serif stack only), samples, or trademarked references.
+  project and generated from code — there are no third-party samples or trademarked
+  references. Body/HUD text uses the system serif stack.
+- The only bundled third-party assets are the **Cinzel** and **Cinzel Decorative**
+  display fonts (used for the wordmark and screen headings), by Natanael Gama / The
+  Cinzel Project Authors, under the **SIL Open Font License 1.1**. The OFL explicitly
+  permits embedding and bundling in commercial products; the licenses travel with the
+  fonts in `fonts/` and attribution appears on the Credits screen. They are loaded
+  locally (no CDN), so the build stays file://-safe and offline.
 - Chess itself is public domain; "Battle Chess" the trademark/asset set is **not**
   used or referenced in any shipped text.
 - User-supplied music is loaded locally at runtime and never bundled.
@@ -129,7 +142,8 @@ Node process; the game itself stays dependency-free.
 ## Project layout
 ```
 index.html        page shell + all DOM screens
-css/style.css     menus/HUD styling
+css/style.css     menus/HUD styling (+ @font-face for the bundled display fonts)
+fonts/            bundled Cinzel display fonts + their SIL OFL license files
 js/audio.js       WebAudio synth engine: SFX, stingers & bundled soundtrack
 js/facts.js       100 "did you know?" orchestral facts for the connecting screen
 js/chess.js       rules engine + FEN loader/exporter (no rendering; unit-tested)
@@ -155,14 +169,16 @@ shots/            reference screenshots taken during development (not in repo; r
 ```
 
 ## Dev/test hooks (URL params)
-`?shot=board` (add `&view=rot|table` for the other cameras) ·
+`?shot=board` (add `&view=rot|table` for the other cameras, `&theme=contrast` for the
+colour-blind-safe palette, `&select=<square>` to show move markers) ·
 `?shot=battle&att=Q&def=K&mate=1&ff=5` (ff = fast-forward seconds; `&alt=N` picks a take)
 `?shot=castle&c=w` · `?shot=ep` · `?shot=star&promo=Q|R|B|N` · `?shot=end&kind=draw|stalemate`
 `?shot=capture` / `?shot=mate` (scripted games) · `?shot=promo` · `?shot=gameover`
 `?shot=soak` runs every choreography take and set-piece scene to completion (logs
 `SOAK DONE 88/88`). `?screen=online` opens the online lobby directly;
 `?screen=profiles` opens the player-profiles screen; `?screen=setup` opens the
-setup screen (handy for the opponent picker); `?screen=career` opens the Career
+setup screen (handy for the opponent picker); `?screen=options` opens Options;
+`?screen=career` opens the Career
 Ladder (`&demo=1` seeds a sample climb so the shot shows all rung states);
 `?screen=puzzles` opens the Puzzles list and `?puzzle=<id>` loads a puzzle straight
 onto the board (`&solve=1` auto-plays its solution). `&warp=N` multiplies game speed.

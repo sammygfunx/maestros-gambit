@@ -16,6 +16,41 @@
   const MG = (globalThis.MG = globalThis.MG || {});
   const TAU = Math.PI * 2;
 
+  /* ---------- board palettes ----------
+     'classic'  — the original ivory-&-ebony concert stage (gold accents).
+     'contrast' — a high-contrast, colour-blind-safe scheme. The classic board
+       leans on a warm-hue pair (tan vs brown) plus red/gold cues that are hard
+       to tell apart with red–green colour vision; this one uses the deutan/
+       protan-safe blue-vs-amber pairing and pairs every colour cue with a SHAPE
+       cue (capture = ring, quiet move = note glyph) so nothing relies on hue.
+     Highlight markers keep their shapes across themes; only the colours change. */
+  const THEMES = {
+    classic: {
+      light: '#c8a368', dark: '#6b4226',
+      sheenLight: 'rgba(255,240,210,0.13)', sheenDark: 'rgba(255,220,170,0.06)',
+      last: 'rgba(180,140,255,0.16)',
+      selFill: 'rgba(232,181,74,0.40)', selStroke: '#ffd98a',
+      check: (p) => `rgba(220,60,40,${p})`,
+      capRing: 'rgba(235,90,60,0.95)', capWidth: 2.5,
+      note: 'rgba(232,181,74,0.8)', noteHover: '#ffd98a',
+      hover: 'rgba(255,255,255,0.08)',
+      rim: '#a87f33',
+    },
+    contrast: {
+      // cream vs strong blue: a luminance- AND hue-distinct pair for red–green CVD
+      light: '#ece3cf', dark: '#2f5d8a',
+      sheenLight: 'rgba(255,255,255,0.16)', sheenDark: 'rgba(200,225,255,0.10)',
+      last: 'rgba(150,200,255,0.26)',                       // cool blue wash
+      selFill: 'rgba(255,176,0,0.50)', selStroke: '#fff1b0', // amber (CB-safe vs blue)
+      check: (p) => `rgba(230,40,40,${0.45 + p * 0.55})`,    // bright, high-luminance
+      capRing: '#ff7a00', capWidth: 3.5,                     // thick orange ring (+shape)
+      note: 'rgba(120,220,255,0.95)', noteHover: '#ffffff',  // cyan quiet-move note
+      hover: 'rgba(255,255,255,0.16)',
+      rim: '#d9b24a',
+    },
+  };
+  MG.BOARD_THEMES = THEMES;
+
   class BoardView {
     constructor(canvas) {
       this.canvas = canvas;
@@ -29,12 +64,17 @@
       this.checkSq = -1;
       this.anim = null;           // active move animation
       this.view = 'iso';          // 'iso' | 'rot' | 'table'
+      this.theme = THEMES.classic; // board palette (see THEMES)
       this.layout();
     }
 
     setView(v) {
       this.view = v === 'rot' || v === 'table' ? v : 'iso';
       this.layout();
+    }
+
+    setTheme(name) {
+      this.theme = THEMES[name] || THEMES.classic;
     }
 
     layout() {
@@ -309,7 +349,7 @@
       ctx.fillStyle = '#1a0f08'; poly(lift); ctx.fill();
       ctx.fillStyle = '#2b1a0d'; poly(lift * 0.55); ctx.fill();
       // gold rim
-      ctx.strokeStyle = '#a87f33';
+      ctx.strokeStyle = this.theme.rim;
       ctx.lineWidth = 2;
       poly(0); ctx.stroke();
     }
@@ -326,15 +366,16 @@
     }
 
     drawTile(ctx, r, c, game) {
+      const T = this.theme;
       const sq = r * 8 + c;
       const { x, y } = this.rc2xy(r, c);
       const light = (r + c) % 2 === 0;
-      let col = light ? '#c8a368' : '#6b4226';
+      let col = light ? T.light : T.dark;
       this.tilePath(ctx, r, c);
       ctx.fillStyle = col;
       ctx.fill();
       // wood sheen along the far edge
-      ctx.fillStyle = light ? 'rgba(255,240,210,0.13)' : 'rgba(255,220,170,0.06)';
+      ctx.fillStyle = light ? T.sheenLight : T.sheenDark;
       const e0 = this.rc2xy(r - 0.5, c - 0.5), e1 = this.rc2xy(r - 0.5, c + 0.5);
       ctx.beginPath();
       ctx.moveTo(e0.x, e0.y); ctx.lineTo(e1.x, e1.y); ctx.lineTo(e0.x, e0.y + 3);
@@ -349,14 +390,14 @@
 
       if (isLast) {
         this.tilePath(ctx, r, c);
-        ctx.fillStyle = 'rgba(180,140,255,0.16)';
+        ctx.fillStyle = T.last;
         ctx.fill();
       }
       if (isSel) {
         this.tilePath(ctx, r, c);
-        ctx.fillStyle = 'rgba(232,181,74,0.40)';
+        ctx.fillStyle = T.selFill;
         ctx.fill();
-        ctx.strokeStyle = '#ffd98a';
+        ctx.strokeStyle = T.selStroke;
         ctx.lineWidth = 2;
         this.tilePath(ctx, r, c);
         ctx.stroke();
@@ -364,23 +405,23 @@
       if (isCheck) {
         const pulse = 0.3 + 0.2 * Math.sin(this.t * 6);
         this.tilePath(ctx, r, c);
-        ctx.fillStyle = `rgba(220,60,40,${pulse})`;
+        ctx.fillStyle = T.check(pulse);
         ctx.fill();
       }
       if (isTarget) {
         const cap = game && game.board[sq];
-        if (cap) { // capture target: red diamond ring
-          ctx.strokeStyle = 'rgba(235,90,60,0.95)';
-          ctx.lineWidth = 2.5;
+        if (cap) { // capture target: a ring (shape cue, not just colour)
+          ctx.strokeStyle = T.capRing;
+          ctx.lineWidth = T.capWidth;
           this.tilePath(ctx, r, c);
           ctx.stroke();
-        } else { // quiet move: a little gold note
-          MG.drawNote(ctx, x, y + 2, 9, isHover ? '#ffd98a' : 'rgba(232,181,74,0.8)', 0);
+        } else { // quiet move: a little note glyph (shape cue, not just colour)
+          MG.drawNote(ctx, x, y + 2, 9, isHover ? T.noteHover : T.note, 0);
         }
       }
       if (isHover && !isSel) {
         this.tilePath(ctx, r, c);
-        ctx.fillStyle = 'rgba(255,255,255,0.08)';
+        ctx.fillStyle = T.hover;
         ctx.fill();
       }
     }

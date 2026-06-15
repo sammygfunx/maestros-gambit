@@ -1,5 +1,15 @@
 MAESTRO'S GAMBIT — PROJECT STATE
-Last updated: 2026-06-15 (v2.0 — TWO chess features: (1) PGN export/import — a new
+Last updated: 2026-06-15 (v2.1 — ACCESSIBILITY + CUSTOM DISPLAY FONT, a presentation/
+a11y polish pass. (1) REDUCE MOTION Options toggle (seeded from the OS
+prefers-reduced-motion) calms the title/menu particles and forces Quick Captures
+(instant) — no battle cut-scenes. (2) BOARD THEME Options control adds a
+high-contrast, colour-blind-safe blue/amber palette beside the classic ivory/ebony,
+with shape-coded move markers (ring=capture, note=quiet) so cues never rely on hue;
+applied in board.js + persisted. (3) CUSTOM DISPLAY FONT for the wordmark + screen
+headings: the Cinzel family (Cinzel Decorative for .game-title; Cinzel for
+.screen-title/modal h3), bundled LOCALLY in fonts/ under SIL OFL 1.1 with its license
+files + Credits attribution — no CDN, file://-safe. See V2.1 CHANGES below.)
+Prior: v2.0 — TWO chess features: (1) PGN export/import — a new
 DOM-free js/pgn.js (MG.PGN) builds a Seven-Tag-Roster + numbered SAN movetext from a
 game and replays a pasted PGN move-by-move; "Copy PGN"/"Download .pgn" on the game-over
 card + Options, and a paste-to-view import in Options. (2) PUZZLES — a minimal FEN
@@ -32,6 +42,64 @@ Prior: v1.2 — choreography variety, castling/en-passant/promotion/stalemate/
 draw set-piece scenes, elaborate checkmate finale
 Prior: v1.1 — battle-end fix, curtain hold, camera views, quit confirm,
 mid-battle resize
+
+V2.1 CHANGES — ACCESSIBILITY + CUSTOM DISPLAY FONT
+  (verified: chess 34/34; rating 20/20; node --check on every touched file
+  [main.js/ui.js/board.js]; headless screenshots of the title (Cinzel Decorative
+  wordmark), the Options screen (new Reduce Motion + Board Theme rows, Cinzel
+  headings) and both board palettes (classic + contrast) all render; the bundled
+  font loads from file:// offline in headless with NO CDN; title/options/board load
+  with zero app console errors. ENGINE UNTOUCHED: chess.js/ai.js/battle.js not
+  modified — this is a presentation/persistence layer only.)
+  - NEW PREFS (mg_prefs settings, persisted like the rest): settings.boardTheme
+    ('classic'|'contrast', default 'classic') and settings.reduceMotion (bool).
+    reduceMotion is deliberately ABSENT from the defaults literal: on first run (no
+    saved value) ui.js init seeds it from window.matchMedia('(prefers-reduced-motion:
+    reduce)'); thereafter the player's explicit Options choice persists.
+  (A) ACCESSIBILITY
+    - REDUCE MOTION (Options #seg-motion, ui.js segInit → settings.reduceMotion):
+        * forces Quick Captures — startGame computes session.battles as
+          `setup.battles==='on' && !settings.reduceMotion`, so capture/checkmate/
+          castle/promotion/end cut-scenes are all skipped (instant) regardless of the
+          per-game Battle Scenes toggle.
+        * calms the menu — App.drawTitle reads `calm = settings.reduceMotion`: the
+          staff lines stop wobbling (sin term dropped) and the rising note-particle
+          stream stops spawning (the two flanking conductors still breathe gently).
+    - BOARD THEME (Options #seg-theme → settings.boardTheme; board.js): a new THEMES
+      table (MG.BOARD_THEMES) with two palettes. 'classic' = the original ivory/ebony
+      + gold cues. 'contrast' = a colour-blind-safe (deutan/protan) pairing: cream
+      light squares vs strong blue dark squares, amber selection, cool-blue last-move
+      wash, a thick orange capture RING and a cyan quiet-move NOTE. Every highlight
+      keeps its SHAPE across themes (ring=capture, note=quiet), so no cue relies on
+      hue alone. BoardView gained this.theme + setTheme(name); drawTile and the gold
+      rim now read from this.theme instead of hard-coded literals. Wired via a new
+      handler App→ MG.UI handlers.setBoardTheme(v) = board.setTheme(v); the theme is
+      also applied once at init from the saved pref, so it survives reload and a fresh
+      startGame (which only re-applies the view, not the theme).
+  (B) CUSTOM DISPLAY FONT (fonts/ NEW + css/style.css @font-face + index.html Credits)
+    - Two faces from the Cinzel family by Natanael Gama / The Cinzel Project Authors,
+      both SIL Open Font License 1.1 (commercial use + embedding/bundling explicitly
+      permitted; licenses kept beside the fonts):
+        fonts/CinzelDecorative-Bold.ttf  → @font-face 'Maestro Display' (the ornate
+          wordmark, applied to .game-title)
+        fonts/Cinzel-Variable.ttf        → @font-face 'Maestro Heading' (refined Roman
+          serif, applied to .screen-title and .modal-card h3)
+      Plus fonts/OFL-Cinzel.txt, fonts/OFL-CinzelDecorative.txt, fonts/README.txt.
+    - BUNDLED LOCALLY: @font-face src is a relative ../fonts/ URL — NO CDN / Google
+      Fonts link — so the build stays file://-safe and copyright-clean. Body/HUD keep
+      the existing Georgia serif stack. .game-title letter-spacing trimmed (10px→4px)
+      so the decorative glyphs sit right. Candidates auditioned before choosing:
+      Cinzel Decorative (picked, ornate display serif), plain Cinzel (picked for
+      headings), Pirata One + UnifrakturMaguntia (blackletter, too heavy/illegible),
+      Silkscreen (pixel, clean but less symphonic).
+    - CREDITS: index.html #screen-credits gained a Cinzel / SIL OFL attribution line
+      (.credits-fonts). README "Commercial-safety notes" updated to disclose the
+      bundled fonts (was "system serif stack only").
+  - DEV HOOKS (main.js debugHook, strip for release): ?shot=board now accepts
+    &theme=classic|contrast and &select=<square> (highlights a piece + its legal
+    targets so the move markers show); ?screen=options opens the Options screen.
+  - NOT TOUCHED: chess.js/ai.js/battle.js/sprites.js/fx.js/net.js/audio.js/rating.js/
+    profiles.js/opponents.js/pgn.js/puzzles.js unchanged.
 
 V2.0 CHANGES — PGN EXPORT/IMPORT + PUZZLE / MATE-IN-N MODE
   (verified: chess 34/34 incl. 8 new FEN assertions [start/midgame/ep round-trips +
@@ -610,8 +678,9 @@ KNOWN MINOR ITEMS / POLISH BACKLOG (none blocking)
   - The puzzle defence is scripted from each solution line (forced in the mate lines;
     one sound line in the win tactics) rather than free engine play — deliberate, so
     the trainer stays predictable. A larger/loadable puzzle book is an easy follow-up.
-  - Title wordmark uses system Georgia; a custom (licensed/original) display
-    font would elevate it.
+  - DONE in v2.1: the title wordmark + screen headings now use the bundled Cinzel
+    display family (was system Georgia). Also DONE in v2.1: a Reduce Motion a11y
+    toggle and a colour-blind-safe high-contrast board theme.
   - ENGINE STRENGTH CAP (~2010 Elo): the persona ladder is honest — it stops at
     the Expert band rather than faking a 2400+/2700 master. Pushing genuine master
     strength (and adding higher rungs without lying about them) needs an opening

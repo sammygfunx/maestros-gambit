@@ -55,6 +55,7 @@
         cycleView: () => this.cycleView(),
         toggleClock: () => this.toggleClock(),
         setClockMode: (v) => this.setClockMode(v),
+        setBoardTheme: (v) => this.board.setTheme(v),
         hostMatch: (side) => this.hostMatch(side),
         joinMatch: (code) => this.joinMatch(code),
         leaveLobby: () => this.leaveLobby(),
@@ -65,6 +66,7 @@
       });
       // reflect loaded prefs in the setup screen
       MG.UI.applyMode(MG.UI.setup.mode);
+      this.board.setTheme(MG.UI.settings.boardTheme || 'classic');
 
       // online relay callbacks (see js/net.js)
       MG.Net.configure({
@@ -125,6 +127,7 @@
         return;
       }
       if (screen === 'setup') { MG.UI.show('screen-setup'); return; }
+      if (screen === 'options') { MG.UI.refreshRatingOption(); MG.UI.show('screen-options'); return; }
       if (screen === 'puzzles') { MG.UI.openPuzzles(); return; }
       // ?puzzle=<id> loads a puzzle straight onto the board (handy for shots);
       // &solve=1 auto-plays the solution (used to verify the full pipeline)
@@ -144,6 +147,14 @@
         this.startGame({ mode: '2p', diff: 1, battles: 'off', side: 'w' });
         const v = q.get('view');
         if (v) { this.board.setView(v); MG.UI.setViewBtn(this.board.view); }
+        const th = q.get('theme');
+        if (th) this.board.setTheme(th);
+        // &select=<sq> highlights a piece + its legal targets (to show move markers)
+        const sel = q.get('select');
+        if (sel != null) {
+          this.board.selected = +sel;
+          this.board.legalTargets = this.game.legalMovesFrom(+sel).map((m) => m.to);
+        }
       } else if (shot === 'battle') {
         this.startGame({ mode: '2p', diff: 1, battles: 'on', side: 'w' });
         const att = { t: q.get('att') || 'P', c: q.get('ac') || 'w' };
@@ -349,7 +360,8 @@
         // puzzles let the engine answer with a strong defence (forced anyway);
         // other modes use the persona profile (or a fallback off-CPU)
         aiProfile: setup.mode === 'puzzle' ? MG.Opponents.get('magnus') : (persona || 1),
-        battles: setup.battles === 'on',
+        // Reduce Motion forces Quick Captures: skip the battle cut-scenes entirely.
+        battles: setup.battles === 'on' && !MG.UI.settings.reduceMotion,
         humanColor: setup.mode === '2p' ? null
           : setup.mode === 'online' ? setup.onlineColor
           : setup.mode === 'puzzle' ? (puzzleDef ? puzzleDef.sideToMove : 'w')
@@ -1122,16 +1134,20 @@
       ctx.fillStyle = rg;
       ctx.fillRect(0, 0, W, H);
 
+      // Reduce Motion calms the menu: still, evenly-spaced staff lines and no
+      // rising particle stream (the conductors below still breathe gently).
+      const calm = MG.UI.settings.reduceMotion;
+
       // drifting staff lines
       ctx.strokeStyle = 'rgba(232,181,74,0.07)';
       ctx.lineWidth = 1;
       for (let i = 0; i < 5; i++) {
-        const y = H * 0.2 + i * 14 + Math.sin(this.titleT * 0.4 + i) * 4;
+        const y = H * 0.2 + i * 14 + (calm ? 0 : Math.sin(this.titleT * 0.4 + i) * 4);
         ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
       }
 
       // floating notes
-      if (Math.random() < 0.06) {
+      if (!calm && Math.random() < 0.06) {
         this.titleFx.add({
           kind: 'note', x: Math.random() * W, y: H + 24,
           vx: (Math.random() - 0.5) * 16, vy: -28 - Math.random() * 30, g: 0,
