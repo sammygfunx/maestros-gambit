@@ -764,14 +764,28 @@
       $('hud-black-name').classList.toggle('active', turn === 'b' && !gameOver);
     },
 
-    setBattleBtn(on) { $('btn-toggle-battles').textContent = `Battles: ${on ? 'On' : 'Off'}`; },
+    setBattleBtn(on) { this._iconBtn('btn-toggle-battles', this._ICONS.swords, on ? 'On' : 'Off'); },
 
     setViewBtn(v) {
-      const names = { iso: 'Ivory', rot: 'Obsidian', table: 'Table', flat: 'Classic 2D' };
-      $('btn-view').textContent = `View: ${names[v] || 'Ivory'}`;
+      // short value + an icon prefix (eye = camera view) so the label fits the
+      // narrow HUD buttons in landscape; the title attr still spells it out.
+      const names = { iso: 'Ivory', rot: 'Obsidian', table: 'Table', flat: '2D' };
+      this._iconBtn('btn-view', this._ICONS.eye, names[v] || 'Ivory');
     },
 
     setClockBtn(on) { $('btn-clock').textContent = `Clock: ${on ? 'On' : 'Off'}`; },
+
+    /* Original inline-SVG glyphs (currentColor, sized in em) — no icon font, so the
+       build stays dependency-free and copyright-clean. eye = View, crossed swords
+       = Battles. */
+    _ICONS: {
+      eye: '<svg class="bico" viewBox="0 0 24 24" aria-hidden="true"><path d="M1.5 12C5 6 19 6 22.5 12 19 18 5 18 1.5 12Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg>',
+      swords: '<svg class="bico" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4 16.5 16.5"/><path d="M20 4 7.5 16.5"/><path d="M2.5 17.5 6 21"/><path d="M21.5 17.5 18 21"/></g></svg>',
+    },
+    _iconBtn(id, svg, val) {
+      const el = $(id);
+      if (el) el.innerHTML = svg + '<span class="blabel">' + val + '</span>';
+    },
 
     /* render an "M:SS" string as DOM seven-segment digits (sharp at any DPI) */
     SEG7: {

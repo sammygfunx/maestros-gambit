@@ -1,5 +1,20 @@
 MAESTRO'S GAMBIT — PROJECT STATE
-Last updated: 2026-06-16 (v2.7 — HUD & MENU POLISH (round 2). CSS + small JS, from
+Last updated: 2026-06-16 (v2.8 — LANDSCAPE HUD POLISH + ONLINE VALIDATED. CSS + small
+JS, from iPhone-13-mini landscape playtesting — no gameplay/rules/engine change.
+(1) The "X to move" banner, which in landscape sat at the very top where the header
+gradient edge struck through it, now floats on the purple background just above the
+board (absolute, centred over the playfield, clear of the side panel) — portrait keeps
+its own-row placement from v2.7. (2) The HUD View + Battles buttons overflowed in the
+narrow landscape side panel ("View: Obsidian" etc.); they now use ORIGINAL inline-SVG
+icons (eye = View, crossed swords = Battles) + a short value (Ivory/Obsidian/Table/2D,
+On/Off), so labels fit — no icon font bundled (stays dependency-free + copyright-clean;
+the title tooltips still spell them out). (3) Docs: ONLINE MULTIPLAYER is now REAL-WORLD
+VALIDATED — Sam played the Netlify build two-devices-same-Wi-Fi and computer-Wi-Fi vs
+iPhone-cellular, both flawless; the previously-deferred two-network/real-device online
+test is DONE. All landscape-only (portrait was already clean); verified headless at
+812x375 (banner above board; "👁 Ivory"/"👁 Obsidian"/"✕ Off" all fit) and desktop
+1280x800 (icons render, no regression). node --check js/ui.js. See V2.8 CHANGES below.)
+Prior: v2.7 — HUD & MENU POLISH (round 2). CSS + small JS, from
 iPhone-13-mini playtesting — no gameplay/rules/engine/choreography change. (1) HUD
 TEAM NAMES now render as TWO lines — orchestra on one line, the persona/profile tag
 smaller below (ui.js _renderName splits "Obsidian Philharmonic (Piccolo Pim)") — so a
@@ -147,6 +162,30 @@ Prior: v1.2 — choreography variety, castling/en-passant/promotion/stalemate/
 draw set-piece scenes, elaborate checkmate finale
 Prior: v1.1 — battle-end fix, curtain hold, camera views, quit confirm,
 mid-battle resize
+
+V2.8 CHANGES — LANDSCAPE HUD POLISH + ONLINE VALIDATED (CSS + small JS)
+  (verified headless: landscape 812x375 board — the "to move" line floats above the
+  board (no longer struck through by the header edge), and View/Battles fit with icons
+  for both "Ivory" and the longer "Obsidian"; desktop 1280x800 — icons render, side
+  panel unchanged. node --check js/ui.js. Touched: js/ui.js, css/style.css, index.html
+  [footer]. ENGINE/CHESS/AI/BATTLE untouched.)
+  - TURN BANNER (css landscape only): #hud-turn-banner becomes position:absolute;
+    top:38px; left:0; right:156px; text-align:center — lifting it off the name row and
+    centring it over the board (the side panel is 150px on the right). pointer-events
+    none so it never eats board taps. Portrait (v2.7) and desktop (base, centred at top)
+    are unchanged.
+  - HUD ICON BUTTONS (js/ui.js setViewBtn/setBattleBtn → _iconBtn + _ICONS; css .bico):
+    "View:"/"Battles:" text prefixes are replaced by original inline-SVG glyphs — an eye
+    for View, crossed swords for Battles — rendered in currentColor and sized in em
+    (.bico { width:1em;height:1em }). View values shortened (flat is now "2D", not
+    "Classic 2D"). This removes the landscape overflow ("View: Obsidian" etc.) on the
+    ~70px side-panel buttons. NO icon font is bundled (the referenced RPG-Awesome is
+    BSD but would add a dependency + attribution); the SVGs are authored here, so the
+    "everything original / commercially clean" guarantee holds. Tooltips (title=) keep
+    the words for clarity. Clock/Undo/Resign/Menu were already fine and unchanged.
+  - ONLINE MULTIPLAYER VALIDATED (docs): the deferred two-network/real-device online
+    test is DONE — see the ONLINE section note. Two-devices-same-Wi-Fi and computer-
+    Wi-Fi vs iPhone-cellular both played flawlessly on the Netlify build.
 
 V2.7 CHANGES — HUD & MENU POLISH round 2 (CSS + small JS; iPhone-13-mini testing)
   (verified headless on the faithful >=760px paths: desktop 1280x800 board HUD unchanged
@@ -883,10 +922,10 @@ V1.5 CHANGES — ONLINE PLAY (verified: chess 26/26, relay smoke OK, net e2e
   - NOT DONE (deliberate, test-scope): no accounts/matchmaking/reconnect-resume/
     spectators/anti-cheat; in-memory rooms vanish on relay restart; one relay
     process only. Move integrity relies on both clients running the honest engine.
-  - REAL-DEVICE / TWO-NETWORK CHECK still pending: only local relay + headless were
-    exercised here. Deploy the relay (Render) and play from two networks before
-    treating online as fully validated; confirm wss:// on an https-hosted build and
-    Render free-tier cold-start (open /healthz first).
+  - REAL-DEVICE / TWO-NETWORK CHECK: DONE (2026-06-16). Played the Netlify-hosted
+    build across two devices on the same Wi-Fi, AND computer-on-Wi-Fi vs iPhone-on-
+    cellular — both worked flawlessly (wss:// relay, no desync, clean connect). Online
+    multiplayer is now real-world validated.
 
 V1.4 CHANGES — MOBILE / RESPONSIVE (verified: 26/26 tests, soak 88/88,
   emulated portrait + landscape screenshots for board/battle/menus, all 3 cameras)

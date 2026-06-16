@@ -624,6 +624,9 @@ html, body {
 #move-list .mv-last { color: var(--gold-bright); }
 .hud-buttons { display: flex; flex-wrap: wrap; gap: 6px; }
 .hud-buttons .btn { flex: 1 1 44%; }
+/* inline icon glyphs in HUD buttons (eye = View, swords = Battles) */
+.bico { width: 1em; height: 1em; display: inline-block; vertical-align: -0.13em; margin-right: .34em; }
+.btn .blabel { vertical-align: baseline; }
 
 /* ---------- chess clocks (DOM seven-segment, stays crisp on hi-DPI) ---------- */
 .mg-clock {
@@ -831,7 +834,13 @@ html, body {
   #hud-top { padding: 4px 12px; }
   /* room for "Obsidian Philharmonic" on one line + the persona below it */
   .hud-name { width: 200px; }
-  #hud-turn-banner { font-size: 14px; }
+  /* lift the "to move" line off the name row (where the header gradient edge cut
+     through it) and float it on the purple background just above the board, centred
+     over the playfield (clear of the 150px side panel). */
+  #hud-turn-banner {
+    position: absolute; top: 38px; left: 0; right: 156px;
+    text-align: center; font-size: 15px; pointer-events: none;
+  }
   /* don't cram the ladder into a tiny inner scroller in landscape — let it grow
      and scroll the whole screen instead (Back stays reachable, v2.6). */
   .career-list { max-height: none; }

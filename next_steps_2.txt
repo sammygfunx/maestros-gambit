@@ -69,10 +69,13 @@ TIER D — MOBILE (largest market, most packaging friction)
   [ ] D1  Capacitor iOS/Android wrapper + App Store / Play packaging ......... high
 
 CARRIED-FORWARD VALIDATIONS (playtest only — no prompt, just play & note bugs)
-  [ ] V1  Real-network + real-device ONLINE test (deploy relay to Render; play
-          across two networks/devices; confirm wss:// + free-tier cold start).
-  [ ] V2  Real MOBILE pass on actual iOS/Android (safe-area, WebAudio unlock on
-          first touch, low-end battle frame rate, pinch-zoom suppression).
+  [x] V1  Real-network + real-device ONLINE test — DONE 2026-06-16. Netlify build,
+          two devices same Wi-Fi AND computer-Wi-Fi vs iPhone-cellular; both flawless
+          (wss:// relay, clean connect, no desync).
+  [~] V2  Real MOBILE pass on iOS — substantially DONE on iPhone 13 mini (web export
+          on Netlify): WebAudio unlock, safe-area, pinch-zoom suppression, battle frame
+          rate all good; HUD/menu layout bugs found & fixed across v2.6–v2.8. Still
+          worth a pass on an Android phone + an iPad before/after store launch.
 
 WHY THIS ORDER
   - You can't get bites on something nobody can buy. A1 makes it purchasable in
