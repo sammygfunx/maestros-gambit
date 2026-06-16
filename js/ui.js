@@ -365,11 +365,14 @@
           cv.style.filter = `hue-rotate(${o.tint}deg) saturate(1.15)`;
           MG.Sprites.drawIcon(cv, 'K', 'b');
           card.appendChild(cv);
+          const meta = document.createElement('div');
+          meta.className = 'opp-meta';
           const name = document.createElement('div');
           name.className = 'opp-name'; name.textContent = o.name;
           const rating = document.createElement('div');
           rating.className = 'opp-rating'; rating.textContent = o.rating;
-          card.appendChild(name); card.appendChild(rating);
+          meta.appendChild(name); meta.appendChild(rating);
+          card.appendChild(meta);
           card.addEventListener('click', () => {
             MG.Audio.uiClick();
             this.setup.opponent = o.id;
@@ -723,14 +726,34 @@
     setThinking(on) { $('thinking').classList.toggle('hidden', !on); },
 
     setNames(whiteName, blackName) {
-      $('hud-white-name').textContent = whiteName;
-      $('hud-black-name').textContent = blackName;
+      this._renderName('hud-white-name', whiteName);
+      this._renderName('hud-black-name', blackName);
+    },
+    /* Render "Orchestra (Persona)" as two lines — the orchestra on one line and
+       the persona/profile tag smaller below — so a long name (e.g. "Obsidian
+       Philharmonic (Piccolo Pim)") never wraps awkwardly into three lines. */
+    _renderName(id, full) {
+      const el = $(id);
+      el.textContent = '';
+      const m = /^(.*?)\s*\(([^)]*)\)\s*$/.exec(full || '');
+      const orch = document.createElement('span');
+      orch.className = 'hud-orch';
+      orch.textContent = m ? m[1] : (full || '');
+      el.appendChild(orch);
+      if (m) {
+        const persona = document.createElement('span');
+        persona.className = 'hud-persona';
+        persona.textContent = m[2];
+        el.appendChild(persona);
+      }
     },
 
     setTurn(turn, inCheck, gameOver) {
       const banner = $('hud-turn-banner');
       if (gameOver) {
-        banner.textContent = gameOver;
+        // The game-over card announces the result, so leave the top banner blank
+        // rather than echoing "Ivory Triumphs" behind the modal (redundant).
+        banner.textContent = '';
         banner.classList.remove('check');
       } else {
         const name = turn === 'w' ? 'Ivory' : 'Obsidian';

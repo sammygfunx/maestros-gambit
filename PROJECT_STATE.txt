@@ -1,5 +1,26 @@
 MAESTRO'S GAMBIT — PROJECT STATE
-Last updated: 2026-06-16 (v2.6 — RESPONSIVE / MENU LAYOUT FIXES. A CSS + one-JS-guard
+Last updated: 2026-06-16 (v2.7 — HUD & MENU POLISH (round 2). CSS + small JS, from
+iPhone-13-mini playtesting — no gameplay/rules/engine/choreography change. (1) HUD
+TEAM NAMES now render as TWO lines — orchestra on one line, the persona/profile tag
+smaller below (ui.js _renderName splits "Obsidian Philharmonic (Piccolo Pim)") — so a
+long name no longer wraps into three ragged lines; widths sized per breakpoint. (2) The
+"X to move" banner is BLANKED on game over (the result card already says it — kills the
+redundant "Ivory Triumphs" behind the modal), and on PORTRAIT phones it drops to its
+own centred line directly above the board instead of being squeezed between the names
+(css #hud-top flex-wrap). (3) GAME-OVER "Encore (Rematch)" button no longer overflows on
+narrow portrait (smaller mobile btn-big). (4) SETUP opponent cards wrap name+rating in
+a column so the rating never spills outside the card on narrow/landscape. (5) CAREER
+rung blurbs WRAP (full text, was clamped to one line + "…"); in landscape the ladder
+list is uncapped so it isn't a claustrophobic one-rung scroller (the whole screen
+scrolls, v2.6). (6) The CLASSIC 2D ('flat') board uses the otherwise-dead bottom space
+in landscape/desktop (board.js: flat gets the full height below the top banner, not the
+iso bottom-reserve), and portrait reserves a touch more headroom for the moved banner.
+Verified headless on the reliable >=760px paths (desktop board HUD intact; iPad-portrait
+834x1112 career shows FULL blurbs, opp rating sits inside the card, board doesn't overlap
+HUD; flat landscape fills the height). Phone-breakpoint specifics need on-device retest
+(headless --window-size doesn't faithfully emulate the phone media queries — see the
+v2.6 caveat). node --check ui.js/board.js. See V2.7 CHANGES below.)
+Prior: v2.6 — RESPONSIVE / MENU LAYOUT FIXES. A CSS + one-JS-guard
 pass fixing real-device menu bugs found while deploying the web build — no gameplay,
 rules, engine, or choreography change. (1) SCROLLABLE SCREENS: .screen was only
 scrollable below 760px wide, so on an iPad (834px portrait) and desktop at 100% zoom
@@ -126,6 +147,46 @@ Prior: v1.2 — choreography variety, castling/en-passant/promotion/stalemate/
 draw set-piece scenes, elaborate checkmate finale
 Prior: v1.1 — battle-end fix, curtain hold, camera views, quit confirm,
 mid-battle resize
+
+V2.7 CHANGES — HUD & MENU POLISH round 2 (CSS + small JS; iPhone-13-mini testing)
+  (verified headless on the faithful >=760px paths: desktop 1280x800 board HUD unchanged
+  [names one line, banner centred]; iPad-portrait 834x1112 career shows every blurb in
+  full, opp-card rating sits inside the card, board clears the HUD; flat board fills the
+  landscape height. node --check js/ui.js + js/board.js. Touched: js/ui.js, js/board.js,
+  css/style.css, index.html [footer version]. ENGINE/CHESS/AI/BATTLE untouched.)
+  - HUD NAMES (js/ui.js setNames → new _renderName + css .hud-orch/.hud-persona): a name
+    like "Obsidian Philharmonic (Piccolo Pim)" is split by regex into an orchestra line
+    (.hud-orch, full size) and a smaller persona line (.hud-persona) so it never wraps to
+    three lines. textContent is used (no injection from PGN headers). .hud-name width 260
+    (base) / 200 (landscape) / auto+50% (portrait); fonts shrink at <=760px/<=560px. The
+    active-team highlight now targets .hud-orch. A name with no "(...)" tag (2P / PGN)
+    renders a single orchestra line.
+  - TURN BANNER (js/ui.js setTurn + css): on game over the banner text is cleared (the
+    result card is the single source of truth — removes the redundant "Ivory Triumphs"
+    that showed behind the modal). In @media (max-width:900px) and portrait, #hud-top
+    flex-wraps and #hud-turn-banner gets order:3; flex:1 0 100%; text-align:center so the
+    "to move" line sits on its own row directly above the board; the two names take the
+    top corners (flex 1 1 0, max-width 50%).
+  - GAME-OVER BUTTON: @media(<=760/<=560) .menu-buttons.row .btn-big shrinks to
+    16px/12px-14px padding so "Encore (Rematch)" fits beside "Main Menu" on a 375px-wide
+    portrait phone (was overflowing its button).
+  - SETUP OPPONENT CARDS (js/ui.js + css .opp-meta): name and rating are wrapped in a
+    flex-column .opp-meta (min-width:0) so a long persona name pushes the rating onto the
+    next line INSIDE the card instead of spilling past the card edge (landscape/narrow).
+  - CAREER LADDER (css): .cr-blurb is now white-space:normal (shows the whole one-liner
+    instead of clamping to a single line with "…"); rungs grow to fit. In @media
+    (<=560px) landscape, .career-list max-height is removed so the ladder isn't a tiny
+    one-rung-at-a-time scroller — the full list renders and the screen scrolls (Back stays
+    reachable via the v2.6 scroll fix). Portrait keeps the generous 54vh inner scroller.
+  - CLASSIC 2D BOARD (js/board.js layout): the 'flat' view has no bottom dock to dodge in
+    landscape/desktop, so it now uses (H - topReserve - 12) of height (flatBottom) and
+    re-centres there, instead of the iso/table bottomReserve — filling the dead space at
+    the bottom of a sideways phone. Portrait flat is unchanged (flatBottom = bottomReserve)
+    and portrait topReserve bumped 56→72 so the moved banner doesn't crowd the board.
+  - CAVEAT (unchanged from v2.6): headless Chrome --window-size does not faithfully
+    emulate phone media-query breakpoints, so the portrait-phone specifics (banner row,
+    persona second line, Encore fit, landscape career height) are best confirmed on a
+    real device / DevTools emulation; the >=760px captures used here are faithful.
 
 V2.6 CHANGES — RESPONSIVE / MENU LAYOUT FIXES (CSS + one JS guard)
   (verified headless: iPad-portrait 834x1112 stills of Options/Career/Profiles/Puzzles

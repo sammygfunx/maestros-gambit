@@ -311,7 +311,9 @@
       const portrait = H >= W;
       const wide = W > 900 && H > 560;
       const sidePanel = wide ? 230 : (portrait ? 10 : 168);
-      const topReserve = wide ? 70 : 56;
+      // portrait phones stack the name + a full-width "to move" line at the top,
+      // so reserve a touch more headroom there.
+      const topReserve = wide ? 70 : (portrait ? 72 : 56);
       const bottomReserve = (!wide && portrait) ? Math.min(210, Math.max(150, H * 0.24)) : 40;
       this.bottomReserve = bottomReserve;
       const availH = H - topReserve - bottomReserve;
@@ -327,15 +329,20 @@
       const V = U * 5;
       this.tp = { D0, U, V, cx: (W - sidePanel) / 2, cy: (H - bottomReserve - 30) - V };
       // 'flat' top-down 2D: a square 8×8 grid centred in the playfield, leaving
-      // room for a frame + coordinate labels around the edge.
+      // room for a frame + coordinate labels around the edge. Unlike the iso/table
+      // views, the flat board has no bottom dock to dodge in landscape/desktop, so
+      // give it (almost) the full height below the top banner instead of the iso
+      // bottomReserve — this fills the otherwise-dead space on a phone held sideways.
       const frame = 26;
-      const fAvail = Math.max(120, Math.min(W - sidePanel - 24 - frame * 2, availH - frame * 2));
+      const flatBottom = portrait ? bottomReserve : 12;
+      const fVert = H - topReserve - flatBottom;
+      const fAvail = Math.max(120, Math.min(W - sidePanel - 24 - frame * 2, fVert - frame * 2));
       const fTile = Math.max(24, Math.floor(fAvail / 8));
       const fSize = fTile * 8;
       this.flat = {
         ts: fTile, size: fSize, frame,
         ox: Math.round((W - sidePanel) / 2 - fSize / 2),
-        oy: Math.round(topReserve + (availH - fSize) / 2),
+        oy: Math.round(topReserve + (fVert - fSize) / 2),
       };
     }
 
