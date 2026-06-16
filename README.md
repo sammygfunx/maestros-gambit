@@ -74,9 +74,12 @@ is generated procedurally at runtime.
 - Animated walk/leap moves on an isometric stage-board; full-screen battle scenes
   for every capture and a checkmate finale (skippable — click or press Esc;
   or switch to "Quick Captures" entirely).
-- Three camera views (HUD "View" button, preference persists): Ivory's corner,
-  Obsidian's corner (180°), and "across the table" — a straight-on, slightly
-  elevated perspective with foreshortened rows.
+- Four camera views (HUD "View" button, preference persists): Ivory's corner,
+  Obsidian's corner (180°), "across the table" — a straight-on, slightly
+  elevated perspective with foreshortened rows — and **Classic 2D**, a clean,
+  familiar top-down diagram board with procedurally-drawn black & white Staunton
+  pieces for when you just want to read the position clearly (it honours the
+  colour-blind-safe Board Theme too).
 - Promotion ceremony, captured-musician trays, algebraic move list, undo, resign.
 - **Chess clocks** — per-player LED seven-segment timers (Ivory in gold, Obsidian
   in violet) that only run for the side to move and freeze during battle scenes.
@@ -138,7 +141,9 @@ Node process; the game itself stays dependency-free.
 ## Commercial-safety notes
 - The name, characters, story, and all visual/audio assets are original to this
   project and generated from code — there are no third-party samples or trademarked
-  references. Body/HUD text uses the system serif stack.
+  references. Body/HUD text uses the system serif stack. The Classic 2D view's
+  black & white Staunton pieces are drawn procedurally from hand-authored vector
+  silhouettes (no chess-piece font or imported artwork — nothing to license).
 - The only bundled third-party assets are the **Cinzel** and **Cinzel Decorative**
   display fonts (used for the wordmark and screen headings), by Natanael Gama / The
   Cinzel Project Authors, under the **SIL Open Font License 1.1**. The OFL explicitly
@@ -166,7 +171,7 @@ js/sprites.js     procedural pixel-art characters, rigs & poses
 js/fx.js          particles: notes, rings, lightning, piano-drop, curtain
 js/battle.js      battle stage + the 36-duel choreography book
 js/reel.js        attract-mode trailer reel (MG.Reel): beat-synced montage over the battle scene
-js/board.js       board view (3 camera projections), move animation, input
+js/board.js       board view (4 camera projections incl. flat 2D + Staunton pieces), move animation, input
 js/rating.js      rating math: Elo + full Glicko-2, USCF/ECF estimates (unit-tested)
 js/profiles.js    player-profile persistence (localStorage 'mg_profiles')
 js/ui.js          DOM glue: screens, options, HUD, dialogs, online lobby, profiles
@@ -183,8 +188,9 @@ shots/            reference screenshots taken during development (not in repo; r
 ```
 
 ## Dev/test hooks (URL params)
-`?shot=board` (add `&view=rot|table` for the other cameras, `&theme=contrast` for the
-colour-blind-safe palette, `&select=<square>` to show move markers) ·
+`?shot=board` (add `&view=rot|table|flat` for the other cameras — `flat` is the
+classic top-down 2D board — `&theme=contrast` for the colour-blind-safe palette,
+`&select=<square>` to show move markers) ·
 `?shot=battle&att=Q&def=K&mate=1&ff=5` (ff = fast-forward seconds; `&alt=N` picks a take)
 `?shot=castle&c=w` · `?shot=ep` · `?shot=star&promo=Q|R|B|N` · `?shot=end&kind=draw|stalemate`
 `?shot=capture` / `?shot=mate` (scripted games) · `?shot=promo` · `?shot=gameover`

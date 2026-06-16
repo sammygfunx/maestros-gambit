@@ -4,11 +4,14 @@
    highlights, and the walking/leaping move animations between
    squares (battles happen in battle.js).
 
-   Three camera views, implemented as swappable projections:
+   Four camera views, implemented as swappable projections:
      'iso'   — isometric, Ivory's corner (the classic)
      'rot'   — the same stage seen from Obsidian's corner (180°)
      'table' — across the table: straight-on, slightly elevated,
                rows foreshortened, back rows smaller
+     'flat'  — a clean, familiar top-down 2D diagram board with
+               procedurally-drawn black & white Staunton pieces
+               (drawFlat / drawPiece2D below; no isometric sprites)
    rc2xy() accepts fractional row/col so tile corners and board
    edges project correctly in every view.
    ============================================================ */
@@ -35,6 +38,17 @@
       note: 'rgba(232,181,74,0.8)', noteHover: '#ffd98a',
       hover: 'rgba(255,255,255,0.08)',
       rim: '#a87f33',
+      // 'flat' top-down 2D board: a classic warm-wood tournament look with
+      // clean ivory/charcoal Staunton pieces (highlight cues reuse the fields
+      // above so selection/check/move markers match the other views).
+      flat: {
+        light: '#ead7b0', dark: '#9a6a3c',           // cream vs walnut squares
+        frame: '#2c1c0d', frameRim: '#c9a44f',       // walnut frame + gold rim
+        label: 'rgba(245,232,205,0.9)',
+        wPiece: '#f7f1e6', wEdge: '#3a2c1d',          // ivory piece, warm-dark outline
+        bPiece: '#36302a', bEdge: '#100c08',          // charcoal piece, near-black outline
+        wDetail: '#3a2c1d', bDetail: '#cdbfa6',       // eye/slit accent (dark on white, light on black)
+      },
     },
     contrast: {
       // cream vs strong blue: a luminance- AND hue-distinct pair for red–green CVD
@@ -47,9 +61,216 @@
       note: 'rgba(120,220,255,0.95)', noteHover: '#ffffff',  // cyan quiet-move note
       hover: 'rgba(255,255,255,0.16)',
       rim: '#d9b24a',
+      // colour-blind-safe 2D board: the same cream/blue square pair, pure
+      // black-vs-white pieces with thick outlines for maximum piece contrast.
+      flat: {
+        light: '#ece3cf', dark: '#2f5d8a',
+        frame: '#152538', frameRim: '#d9b24a',
+        label: 'rgba(235,243,255,0.92)',
+        wPiece: '#ffffff', wEdge: '#10243a',
+        bPiece: '#15171a', bEdge: '#000000',
+        wDetail: '#10243a', bDetail: '#dfe7f2',
+      },
     },
   };
   MG.BOARD_THEMES = THEMES;
+
+  /* ============================================================
+     PROCEDURAL 2D STAUNTON PIECES (for the 'flat' view)
+     Each glyph is a single closed silhouette traced in a
+     resolution-independent fraction space: x is a fraction of the
+     piece height left/right of centre, y rises from 0 at the base
+     to ~1 at the crown. We draw it filled (piece colour) + stroked
+     (outline) once, so the outline is clean with no internal seams.
+     Symmetric pieces give a LEFT half (base→top-left) + an explicit
+     TOP profile (left→right); the right half is the mirror. The
+     knight is one explicit asymmetric profile (a horse's head).
+     These shapes are authored here from scratch — no copied artwork.
+     ============================================================ */
+  const DEG = Math.PI / 180;
+  // sample a circular arc into points (fraction space; +y is up)
+  function farc(cx, cy, r, a0, a1, n) {
+    const out = [];
+    for (let i = 0; i <= n; i++) {
+      const a = a0 + (a1 - a0) * (i / n);
+      out.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]);
+    }
+    return out;
+  }
+
+  // ball-tipped crown spike helper (returns the arc over a small finial)
+  const ball = (cx, cy, r = 0.05) => farc(cx, cy, r, 210 * DEG, -30 * DEG, 12);
+
+  // height of each piece as a fraction of the tile, and outline data.
+  // Built lazily and cached (constant geometry).
+  let GLYPHS = null;
+  function glyphs() {
+    if (GLYPHS) return GLYPHS;
+    const cat = (...as) => [].concat(...as);
+
+    // ---- Pawn ----
+    const pawn = {
+      h: 0.60,
+      body: [
+        [-0.34, 0.00], [-0.34, 0.05], [-0.205, 0.10], [-0.155, 0.155],
+        [-0.235, 0.20], [-0.135, 0.245], [-0.105, 0.45], [-0.205, 0.52],
+        [-0.118, 0.612],
+      ],
+      top: farc(0, 0.78, 0.205, 235 * DEG, -55 * DEG, 22),
+    };
+
+    // ---- Bishop ----
+    const bishop = {
+      h: 0.74,
+      body: [
+        [-0.32, 0.00], [-0.32, 0.05], [-0.19, 0.10], [-0.15, 0.15],
+        [-0.225, 0.19], [-0.135, 0.235], [-0.10, 0.34], [-0.20, 0.46],
+        [-0.125, 0.565], [-0.175, 0.585], [-0.115, 0.625], [-0.13, 0.66],
+      ],
+      top: cat(
+        [[-0.13, 0.66], [-0.115, 0.74], [-0.075, 0.82], [-0.028, 0.87]],
+        ball(0, 0.915, 0.052),
+        [[0.028, 0.87], [0.075, 0.82], [0.115, 0.74], [0.13, 0.66]]
+      ),
+      detail: [[-0.055, 0.74], [0.07, 0.835]], // mitre slit
+    };
+
+    // ---- Rook ----
+    const rook = {
+      h: 0.64,
+      body: [
+        [-0.34, 0.00], [-0.34, 0.06], [-0.225, 0.115], [-0.185, 0.17],
+        [-0.255, 0.205], [-0.175, 0.245], [-0.155, 0.50], [-0.235, 0.545],
+        [-0.215, 0.62],
+      ],
+      top: [
+        [-0.215, 0.62], [-0.215, 0.76], [-0.115, 0.76], [-0.115, 0.685],
+        [-0.04, 0.685], [-0.04, 0.76], [0.04, 0.76], [0.04, 0.685],
+        [0.115, 0.685], [0.115, 0.76], [0.215, 0.76], [0.215, 0.62],
+      ],
+    };
+
+    // ---- Queen ----
+    const queen = {
+      h: 0.78,
+      body: [
+        [-0.30, 0.00], [-0.30, 0.06], [-0.18, 0.11], [-0.145, 0.16],
+        [-0.225, 0.20], [-0.13, 0.245], [-0.085, 0.43], [-0.175, 0.53],
+        [-0.115, 0.60], [-0.16, 0.625], [-0.105, 0.665], [-0.175, 0.69],
+      ],
+      top: cat(
+        [[-0.175, 0.69], [-0.225, 0.80]], ball(-0.185, 0.86),
+        [[-0.145, 0.80], [-0.135, 0.78], [-0.115, 0.85]], ball(-0.09, 0.915),
+        [[-0.05, 0.84], [-0.045, 0.79], [-0.03, 0.86]], ball(0, 0.955),
+        [[0.03, 0.86], [0.045, 0.79], [0.05, 0.84]], ball(0.09, 0.915),
+        [[0.115, 0.85], [0.135, 0.78], [0.145, 0.80]], ball(0.185, 0.86),
+        [[0.225, 0.80], [0.175, 0.69]]
+      ),
+    };
+
+    // ---- King ----
+    const king = {
+      h: 0.80,
+      body: [
+        [-0.30, 0.00], [-0.30, 0.06], [-0.185, 0.11], [-0.15, 0.16],
+        [-0.23, 0.20], [-0.135, 0.245], [-0.09, 0.43], [-0.185, 0.53],
+        [-0.13, 0.60], [-0.175, 0.625], [-0.115, 0.665], [-0.185, 0.70],
+      ],
+      top: [
+        [-0.185, 0.70], [-0.205, 0.79], [-0.12, 0.79], [-0.085, 0.74],
+        [-0.06, 0.80], [-0.06, 0.875], [-0.135, 0.875], [-0.135, 0.94],
+        [-0.06, 0.94], [-0.06, 1.01], [0.06, 1.01], [0.06, 0.94],
+        [0.135, 0.94], [0.135, 0.875], [0.06, 0.875], [0.06, 0.80],
+        [0.085, 0.74], [0.12, 0.79], [0.205, 0.79], [0.185, 0.70],
+      ],
+    };
+
+    // ---- Knight (asymmetric: a horse's head facing left) ----
+    const knight = {
+      h: 0.70,
+      full: [
+        [-0.32, 0.00], [-0.32, 0.05], [-0.185, 0.10], [-0.15, 0.155],
+        [-0.225, 0.195], [-0.12, 0.235], [-0.155, 0.34], [-0.235, 0.50],
+        [-0.335, 0.585], [-0.43, 0.60], [-0.455, 0.655], [-0.41, 0.705],
+        [-0.315, 0.70], [-0.285, 0.755], [-0.32, 0.84], [-0.275, 0.90],
+        [-0.18, 0.915], [-0.155, 1.00], [-0.085, 0.92], [-0.02, 0.945],
+        [0.075, 0.875], [0.14, 0.74], [0.165, 0.55], [0.13, 0.36],
+        [0.145, 0.235], [0.225, 0.195], [0.15, 0.155], [0.185, 0.10],
+        [0.32, 0.05], [0.32, 0.00],
+      ],
+      eye: [-0.235, 0.79],
+    };
+
+    GLYPHS = { P: pawn, B: bishop, R: rook, Q: queen, K: king, N: knight };
+    return GLYPHS;
+  }
+
+  // trace a fraction-space point list onto the canvas at (cx, by, h)
+  function traceFrac(ctx, pts, cx, by, h, mirror) {
+    for (let i = 0; i < pts.length; i++) {
+      const fx = mirror ? -pts[i][0] : pts[i][0];
+      const x = cx + fx * h, y = by - pts[i][1] * h;
+      if (i === 0 && !mirror) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+  }
+
+  /* Draw a clean 2D Staunton piece centred on a square.
+     (cx, cy) = square centre; tile = square edge length. */
+  function drawPiece2D(ctx, type, color, pal, cx, cy, tile) {
+    const G = glyphs()[type];
+    if (!G) return;
+    const h = G.h * tile;
+    const by = cy + h * 0.5 - tile * 0.04; // base sits a touch below centre
+    const fill = color === 'w' ? pal.wPiece : pal.bPiece;
+    const edge = color === 'w' ? pal.wEdge : pal.bEdge;
+    const detail = color === 'w' ? pal.wDetail : pal.bDetail;
+
+    // soft contact shadow for a little weight
+    ctx.save();
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.beginPath();
+    ctx.ellipse(cx, by - h * 0.01, h * 0.32, h * 0.075, 0, 0, TAU);
+    ctx.fill();
+    ctx.restore();
+
+    ctx.save();
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    ctx.lineWidth = Math.max(1.3, h * 0.05);
+    ctx.strokeStyle = edge;
+    ctx.fillStyle = fill;
+    ctx.beginPath();
+    if (G.full) {
+      traceFrac(ctx, G.full, cx, by, h, false);
+    } else {
+      traceFrac(ctx, G.body, cx, by, h, false);    // left side up
+      traceFrac(ctx, G.top, cx, by, h, false);      // across the top
+      for (let i = G.body.length - 1; i >= 0; i--) { // right side down (mirror)
+        ctx.lineTo(cx - G.body[i][0] * h, by - G.body[i][1] * h);
+      }
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // accents: knight eye, bishop slit
+    if (G.eye) {
+      ctx.fillStyle = detail;
+      ctx.beginPath();
+      ctx.arc(cx + G.eye[0] * h, by - G.eye[1] * h, h * 0.035, 0, TAU);
+      ctx.fill();
+    }
+    if (G.detail) {
+      ctx.strokeStyle = detail;
+      ctx.lineWidth = Math.max(1, h * 0.035);
+      ctx.beginPath();
+      ctx.moveTo(cx + G.detail[0][0] * h, by - G.detail[0][1] * h);
+      ctx.lineTo(cx + G.detail[1][0] * h, by - G.detail[1][1] * h);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+  MG.drawPiece2D = drawPiece2D;
 
   class BoardView {
     constructor(canvas) {
@@ -69,7 +290,7 @@
     }
 
     setView(v) {
-      this.view = v === 'rot' || v === 'table' ? v : 'iso';
+      this.view = (v === 'rot' || v === 'table' || v === 'flat') ? v : 'iso';
       this.layout();
     }
 
@@ -105,6 +326,17 @@
       const U = Math.max(34, Math.min((W - sidePanel - 70) / 8.4, (availH - 80) / 3.2));
       const V = U * 5;
       this.tp = { D0, U, V, cx: (W - sidePanel) / 2, cy: (H - bottomReserve - 30) - V };
+      // 'flat' top-down 2D: a square 8×8 grid centred in the playfield, leaving
+      // room for a frame + coordinate labels around the edge.
+      const frame = 26;
+      const fAvail = Math.max(120, Math.min(W - sidePanel - 24 - frame * 2, availH - frame * 2));
+      const fTile = Math.max(24, Math.floor(fAvail / 8));
+      const fSize = fTile * 8;
+      this.flat = {
+        ts: fTile, size: fSize, frame,
+        ox: Math.round((W - sidePanel) / 2 - fSize / 2),
+        oy: Math.round(topReserve + (availH - fSize) / 2),
+      };
     }
 
     ts(r) { const { D0 } = this.tp; return D0 / (D0 + 7.5 - r); } // table row scale
@@ -114,6 +346,10 @@
       return this.rc2xy(r, c);
     }
     rc2xy(r, c) { // fractional r/c welcome (tile corners, board edges)
+      if (this.view === 'flat') {
+        const f = this.flat;
+        return { x: f.ox + (c + 0.5) * f.ts, y: f.oy + (r + 0.5) * f.ts };
+      }
       if (this.view === 'table') {
         const { U, V, cx, cy } = this.tp;
         const s = this.ts(r);
@@ -127,7 +363,11 @@
     }
     squareAt(mx, my) {
       let r, c;
-      if (this.view === 'table') {
+      if (this.view === 'flat') {
+        const f = this.flat;
+        c = Math.floor((mx - f.ox) / f.ts);
+        r = Math.floor((my - f.oy) / f.ts);
+      } else if (this.view === 'table') {
         const { D0, U, V, cx, cy } = this.tp;
         const s = (my - cy) / V;
         if (s <= 0.02) return -1;
@@ -145,9 +385,11 @@
 
     /* per-square sprite scale / ground offset / mirror */
     sqScale(sq) {
+      if (this.view === 'flat') return this.flat.ts / 52;
       return this.view === 'table' ? (this.tp.U * this.ts(Math.floor(sq / 8))) / 52 : this.scale;
     }
     footOff(sq) {
+      if (this.view === 'flat') return 0;
       if (this.view !== 'table') return this.th * 0.18;
       const r = Math.floor(sq / 8);
       return (this.rc2xy(r + 0.5, 3.5).y - this.rc2xy(r - 0.5, 3.5).y) * 0.18;
@@ -209,6 +451,7 @@
 
     /* ---------- drawing ---------- */
     draw(game, opts = {}) {
+      if (this.view === 'flat') return this.drawFlat(game, opts);
       const ctx = this.ctx;
       const d = MG.dpr || 1;
       ctx.setTransform(d, 0, 0, d, 0, 0);
@@ -367,19 +610,23 @@
 
     drawTile(ctx, r, c, game) {
       const T = this.theme;
+      const flat = this.view === 'flat';
       const sq = r * 8 + c;
       const { x, y } = this.rc2xy(r, c);
       const light = (r + c) % 2 === 0;
-      let col = light ? T.light : T.dark;
+      const pal = flat ? T.flat : T;     // flat board uses its own square palette
+      let col = light ? pal.light : pal.dark;
       this.tilePath(ctx, r, c);
       ctx.fillStyle = col;
       ctx.fill();
-      // wood sheen along the far edge
-      ctx.fillStyle = light ? T.sheenLight : T.sheenDark;
-      const e0 = this.rc2xy(r - 0.5, c - 0.5), e1 = this.rc2xy(r - 0.5, c + 0.5);
-      ctx.beginPath();
-      ctx.moveTo(e0.x, e0.y); ctx.lineTo(e1.x, e1.y); ctx.lineTo(e0.x, e0.y + 3);
-      ctx.closePath(); ctx.fill();
+      if (!flat) {
+        // wood sheen along the far edge (isometric stages only)
+        ctx.fillStyle = light ? T.sheenLight : T.sheenDark;
+        const e0 = this.rc2xy(r - 0.5, c - 0.5), e1 = this.rc2xy(r - 0.5, c + 0.5);
+        ctx.beginPath();
+        ctx.moveTo(e0.x, e0.y); ctx.lineTo(e1.x, e1.y); ctx.lineTo(e0.x, e0.y + 3);
+        ctx.closePath(); ctx.fill();
+      }
 
       // overlays
       const isSel = sq === this.selected;
@@ -438,6 +685,113 @@
         const { x, y } = this.sq2xy(sq);
         this.fxl.popup(x, y - 90, text, '#ff8d6b', 30, 1.4);
       }
+    }
+
+    /* ---------- 'flat' top-down 2D board ----------
+       A clean, familiar chess-diagram view: a framed wood/contrast board,
+       file/rank labels, and procedural black & white Staunton pieces. Reuses
+       drawTile() for the squares + highlight markers; pieces are drawn by
+       drawPiece2D() (no isometric sprites). The move animation slides the
+       piece flat between squares (a small hop for knights). */
+    drawFlat(game) {
+      const ctx = this.ctx, T = this.theme, F = T.flat, f = this.flat;
+      const d = MG.dpr || 1;
+      ctx.setTransform(d, 0, 0, d, 0, 0);
+      const [shx, shy] = this.fxl.shakeOffset();
+
+      // backdrop
+      this.drawFlatBackdrop(ctx, F);
+
+      ctx.save();
+      ctx.translate(shx, shy);
+
+      // outer frame + gold rim
+      const m = f.frame;
+      ctx.fillStyle = F.frame;
+      ctx.fillRect(f.ox - m, f.oy - m, f.size + 2 * m, f.size + 2 * m);
+      ctx.strokeStyle = F.frameRim;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(f.ox - m * 0.5, f.oy - m * 0.5, f.size + m, f.size + m);
+      ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(f.ox + 0.5, f.oy + 0.5, f.size - 1, f.size - 1);
+
+      // squares + highlight overlays
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) this.drawTile(ctx, r, c, game);
+      }
+
+      // coordinate labels (white at the bottom: rank 1 = bottom row)
+      ctx.fillStyle = F.label;
+      ctx.font = `${Math.max(9, Math.round(f.ts * 0.24))}px Georgia, serif`;
+      ctx.textBaseline = 'middle';
+      for (let r = 0; r < 8; r++) {
+        ctx.textAlign = 'center';
+        ctx.fillText(String(8 - r), f.ox - m * 0.5, f.oy + (r + 0.5) * f.ts);
+      }
+      for (let c = 0; c < 8; c++) {
+        ctx.textAlign = 'center';
+        ctx.fillText(String.fromCharCode(97 + c), f.ox + (c + 0.5) * f.ts, f.oy + f.size + m * 0.55);
+      }
+
+      // pieces — back rank (r=0) first so taller front pieces overlap upward
+      const a = this.anim;
+      const board = a ? a.snapshot : game.board;
+      const hide = new Set();
+      if (a) {
+        hide.add(a.visual.from);
+        if (a.visual.second) hide.add(a.visual.second.from);
+      }
+      for (let i = 0; i < 64; i++) {
+        if (hide.has(i)) continue;
+        const p = board[i];
+        if (!p) continue;
+        const { x, y } = this.sq2xy(i);
+        drawPiece2D(ctx, p.t, p.c, F, x, y, f.ts);
+      }
+
+      // the walker(s)
+      if (a) {
+        const u = Math.min(1, a.t / a.dur);
+        const slide = (vis, frac, hop) => {
+          const from = this.sq2xy(vis.from), to = this.sq2xy(vis.to);
+          const x = from.x + (to.x - from.x) * frac;
+          let y = from.y + (to.y - from.y) * frac;
+          if (hop) y -= Math.sin(frac * Math.PI) * f.ts * 0.32;
+          drawPiece2D(ctx, vis.piece.t, vis.piece.c, F, x, y, f.ts);
+        };
+        if (!a.secondPhase) {
+          if (a.visual.second) { // castling: rook waits idle at its origin
+            const sp = a.visual.second, s = this.sq2xy(sp.from);
+            drawPiece2D(ctx, sp.piece.t, sp.piece.c, F, s.x, s.y, f.ts);
+          }
+          slide(a.visual, u, a.visual.piece.t === 'N');
+        } else {
+          const k = this.sq2xy(a.visual.to);
+          drawPiece2D(ctx, a.visual.piece.t, a.visual.piece.c, F, k.x, k.y, f.ts);
+          slide(a.visual.second, u, false);
+        }
+      }
+
+      this.fxl.draw(ctx);
+      ctx.restore();
+      this.fxl.drawFlash(ctx);
+    }
+
+    drawFlatBackdrop(ctx, F) {
+      const W = this.W, H = this.H;
+      const g = ctx.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0, '#0e0716');
+      g.addColorStop(1, '#1a1024');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+      // top valance to match the other views
+      ctx.fillStyle = '#4a1010';
+      ctx.fillRect(0, 0, W, 18);
+      ctx.fillStyle = 'rgba(0,0,0,0.3)';
+      for (let x = 0; x < W; x += 34) ctx.fillRect(x, 0, 12, 18);
+      ctx.fillStyle = '#a87f33';
+      ctx.fillRect(0, 18, W, 2);
     }
   }
 

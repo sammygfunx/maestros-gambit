@@ -1,6 +1,14 @@
 MAESTRO'S GAMBIT — NEXT STEPS (post-v1.8 roadmap)
 Created: 2026-06-15
 
+UPDATE 2026-06-16: all five roadmap passes below have landed (PASS 1 v1.9, PASS 2
+v2.0, PASS 3 v2.1, PASS 4 v2.2, PASS 5 v2.3). v2.4 then added an unplanned extra:
+a CLASSIC 2D board view ("View: Classic 2D") — a clean top-down diagram board with
+procedural black & white Staunton pieces — see V2.4 CHANGES in PROJECT_STATE.txt.
+The remaining open items are the two deferred real-device/real-network validations
+just below (play-testing, not building).
+
+
 HOW TO USE THIS FILE
   Each numbered PASS below is a self-contained unit of work with an ideal
   copy/paste prompt and a suggested model + effort. Start each pass in a FRESH

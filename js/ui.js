@@ -744,7 +744,7 @@
     setBattleBtn(on) { $('btn-toggle-battles').textContent = `Battles: ${on ? 'On' : 'Off'}`; },
 
     setViewBtn(v) {
-      const names = { iso: 'Ivory', rot: 'Obsidian', table: 'Table' };
+      const names = { iso: 'Ivory', rot: 'Obsidian', table: 'Table', flat: 'Classic 2D' };
       $('btn-view').textContent = `View: ${names[v] || 'Ivory'}`;
     },
 

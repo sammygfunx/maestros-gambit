@@ -1,5 +1,21 @@
 MAESTRO'S GAMBIT — PROJECT STATE
-Last updated: 2026-06-15 (v2.3 — TRAILER REEL + CAPTURE PIPELINE. A MARKETING/
+Last updated: 2026-06-16 (v2.4 — CLASSIC 2D BOARD VIEW. A presentation-only pass
+that adds a FOURTH camera view, 'flat' (HUD "View: Classic 2D"): a clean, familiar
+top-down chess-diagram board with procedurally-drawn black & white Staunton pieces,
+for when you just want to read the position clearly. All in js/board.js: a new
+'flat' projection (orthogonal square grid in rc2xy/squareAt/layout), a framed
+wood/contrast board with file/rank labels, and a from-scratch 2D Staunton glyph set
+(drawPiece2D + the GLYPHS data — single-outline silhouettes traced in fraction
+space, fill+stroke so the outline is seamless; symmetric pieces are a left-half +
+top-profile mirror, the knight is one explicit horse-head profile). It reuses
+drawTile() for squares + highlight markers, so selection/check/last-move/legal-move
+cues match the other views, and it honours the colour-blind-safe Board Theme (its
+own flat palette per theme). Toggle order is now iso->rot->table->flat; the choice
+persists in mg_prefs.view like the others. ENGINE/CHESS/AI/BATTLE UNTOUCHED — pure
+render layer. Verified: chess 34/34, rating 20/20, node --check on board/main/ui;
+headless flat-board stills in both palettes (classic wood + CB-safe) with selection
++ move markers; every piece type legible both colours. See V2.4 CHANGES below.)
+Prior: v2.3 — TRAILER REEL + CAPTURE PIPELINE. A MARKETING/
 PRESENTATION pass — no rules, engine, or choreography logic changed. (1) A new
 "attract mode" TRAILER REEL (js/reel.js, MG.Reel): a scripted, beat-synced ~33s
 timeline that drives the EXISTING battle pipeline so one screen-recording is a
@@ -69,6 +85,55 @@ Prior: v1.2 — choreography variety, castling/en-passant/promotion/stalemate/
 draw set-piece scenes, elaborate checkmate finale
 Prior: v1.1 — battle-end fix, curtain hold, camera views, quit confirm,
 mid-battle resize
+
+V2.4 CHANGES — CLASSIC 2D BOARD VIEW (presentation only)
+  (verified: chess 34/34; rating 20/20; node --check on js/board.js, js/main.js,
+  js/ui.js; headless flat-board stills via ?shot=board&view=flat in BOTH palettes
+  [classic wood + &theme=contrast CB-safe], with &select=<sq> confirming selection
+  + capture-ring + quiet-note markers render in 2D; all six piece types legible in
+  both colours; the title/board load with zero app console errors. ENGINE UNTOUCHED:
+  chess.js/ai.js/battle.js/sprites.js/opponents.js/etc. not modified — this is a
+  pure render-layer addition, so the verified engine + choreography carry zero risk.)
+  - NEW VIEW 'flat' (js/board.js): a fourth value alongside iso/rot/table. setView()
+    now accepts it; cycleView() order (js/main.js) is iso->rot->table->flat; the HUD
+    label (js/ui.js setViewBtn) reads "View: Classic 2D"; persists as settings.view
+    in mg_prefs like the others, and the ?view=flat debug hook + startGame both apply
+    it. It is a true top-down 2D DIAGRAM board — no isometric sprites, no battle-scene
+    change (battles still play in their own iso stage when triggered from this view).
+  - PROJECTION: rc2xy()/squareAt() gained a 'flat' branch — an orthogonal 8x8 grid
+    (white at the bottom: row 7 = rank 1, col 0 = file a). layout() computes this.flat
+    {ts (square px), size, frame, ox, oy} as a centred square board leaving room for a
+    frame + coordinate labels. sqScale()/footOff() return flat-appropriate values
+    (footOff 0). The shared move-animation (beginMoveAnim/update via sq2xy) works
+    unchanged; only the DRAWING differs.
+  - DRAWING: draw() delegates to drawFlat() when view==='flat'. drawFlat() paints a
+    velvet backdrop + valance, a walnut/contrast FRAME with a gold rim, the squares +
+    highlight overlays (REUSES drawTile(), which now picks T.flat colours and skips
+    the isometric sheen when flat), file/rank LABELS, then the pieces (back rank first
+    so taller front pieces overlap upward), then the sliding walker(s) — a flat slide
+    between squares with a small hop for knights, plus the castling-rook second phase.
+    fxl particles/flash still draw over it.
+  - PALETTE: each Board Theme (classic/contrast) gained a `flat` sub-object
+    {light,dark, frame,frameRim, label, wPiece,wEdge, bPiece,bEdge, wDetail,bDetail}.
+    classic = cream/walnut squares + ivory/charcoal pieces; contrast = the CB-safe
+    cream/blue squares + pure white/near-black pieces with heavier outlines. Highlight
+    markers (selFill/last/check/capRing/note) are reused from the parent theme, so the
+    shape-coded cues (ring=capture, note=quiet) carry over to 2D unchanged.
+  - PROCEDURAL STAUNTON PIECES (js/board.js, drawPiece2D + GLYPHS, exported as
+    MG.drawPiece2D): each piece is a single CLOSED silhouette traced in a
+    resolution-independent fraction space (x = fraction of piece height either side of
+    centre; y rises 0 at the base to ~1 at the crown), drawn fill (piece colour) +
+    stroke (outline) ONCE so the outline is seamless with no internal joins. Symmetric
+    pieces (P/B/R/Q/K) are authored as a LEFT-half body list (base->top-left) + an
+    explicit TOP profile (left->right, with ball-tipped crown spikes / crenellations /
+    king's cross sampled via farc()); the right half is the mirror. The KNIGHT is one
+    explicit asymmetric horse-head profile. Small accents: a knight eye + a bishop
+    slit (in the per-colour detail colour). Per-piece heights are a fraction of the
+    tile (P .60 ... K .80). All shapes authored from scratch here — NO copied artwork
+    or third-party chess font, so the commercial-original guarantee holds (no glyph
+    licence needed; nothing loaded from a font for the pieces).
+  - NOT TOUCHED: every other js file. No new <script> (all additions live in the
+    existing board.js). No HTML/CSS change (the View button already existed).
 
 V2.3 CHANGES — TRAILER REEL + CAPTURE PIPELINE (marketing/presentation)
   (verified: chess 34/34; choreography soak 88/88 [SOAK DONE — battle.js change is

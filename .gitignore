@@ -4,6 +4,10 @@ server/relay/node_modules/
 # Generated test screenshots — regenerate with ?shot= dev hooks
 shots/
 
+# Web build: keep the deployable zip in git, ignore the unzipped staging copy
+# (it just duplicates the runtime source files)
+build/maestros-gambit-web/
+
 # macOS resource forks / metadata
 .DS_Store
 **/.DS_Store
@@ -12,3 +16,8 @@ shots/
 
 # Claude Code local project settings
 .claude/
+
+# Local trailer-editing scratch (ScreenFlow project + exported mp4, ~187MB).
+# These are local working media, not repo content — the trailer's source is the
+# in-game reel (js/reel.js). Keep them out of git history.
+promo/

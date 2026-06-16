@@ -296,7 +296,7 @@
     },
 
     cycleView() {
-      const order = ['iso', 'rot', 'table'];
+      const order = ['iso', 'rot', 'table', 'flat'];
       const next = order[(order.indexOf(MG.UI.settings.view || 'iso') + 1) % order.length];
       MG.UI.settings.view = next;
       MG.UI.savePrefs();
