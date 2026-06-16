@@ -17,7 +17,11 @@ build/maestros-gambit-web/
 # Claude Code local project settings
 .claude/
 
-# Local trailer-editing scratch (ScreenFlow project + exported mp4, ~187MB).
-# These are local working media, not repo content — the trailer's source is the
-# in-game reel (js/reel.js). Keep them out of git history.
-promo/
+# promo/: keep the SOURCE deliverables (page copy, checklists, capture scripts) in
+# git, but ignore generated/heavy media — they regenerate from the in-game hooks
+# (promo/capture_assets.sh) or the in-game reel (js/reel.js), like the shots/ dir.
+# (The ScreenFlow project + exported mp4 are ~187MB of local working media.)
+promo/trailer_reel.mp4
+promo/*.screenflow
+promo/screenshots/
+promo/.gifframes/

@@ -437,6 +437,10 @@
     <div id="err-overlay" class="hidden"></div>
   </div>
 
+<!-- DEV HOOKS FLAG: enables the ?shot=/?reel=/?screen= debug URL params (see main.js
+     debugHook). The release build flips this to false (build/make_web_build.sh) so the
+     dev/testing hooks are NOT exposed to players. Keep it true in the repo. -->
+<script>window.__MG_DEV__ = true;</script>
 <script src="js/audio.js"></script>
 <script src="js/facts.js"></script>
 <script src="js/sprites.js"></script>

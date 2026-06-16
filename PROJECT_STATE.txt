@@ -1,5 +1,21 @@
 MAESTRO'S GAMBIT — PROJECT STATE
-Last updated: 2026-06-16 (v2.4 — CLASSIC 2D BOARD VIEW. A presentation-only pass
+Last updated: 2026-06-16 (v2.5 — ITCH.IO RELEASE PREP. A ship/marketing pass — NO
+gameplay, rules, engine, or choreography change. (1) DEV-HOOK STRIP: index.html now
+carries window.__MG_DEV__ (true in the repo) and js/main.js debugHook() early-returns
+unless it is set, so the ?shot=/?reel=/?screen= dev URL params can be turned OFF for
+release. (2) build/make_web_build.sh: ONE command builds maestros-gambit-web/ + .zip,
+flipping the flag to false in the SHIPPED copy only and stripping macOS ._* sidecars
+(itch HTML5 / Netlify ready, index.html at the zip root). (3) MARKETING KIT in promo/:
+capture_assets.sh grabs the 8-shot storefront set + an example loop GIF via the dev
+hooks; itch_page.md (page copy, spectacle-first) + itch_launch_checklist.md (AI-done
+vs you-do steps). (4) .gitignore narrowed so promo/ SOURCE deliverables are tracked but
+generated media (screenshots, mp4, screenflow) stay out. Verified: chess 34/34; node
+--check js/main.js; the SHIPPED build ignores ?shot= and loads to a clean title while
+the repo build still honours dev hooks; all 8 stills + GIF render clean (no error
+overlay). Shipped-code change is only index.html (one flag line) + main.js (one guard
+line); ENGINE/CHESS/AI/BATTLE/UI logic UNTOUCHED. See V2.5 CHANGES below. This is
+PASS A1 of next_steps_2.txt — the post-v2.4 "ship it & sell it" roadmap.)
+Prior: v2.4 — CLASSIC 2D BOARD VIEW. A presentation-only pass
 that adds a FOURTH camera view, 'flat' (HUD "View: Classic 2D"): a clean, familiar
 top-down chess-diagram board with procedurally-drawn black & white Staunton pieces,
 for when you just want to read the position clearly. All in js/board.js: a new
@@ -85,6 +101,45 @@ Prior: v1.2 — choreography variety, castling/en-passant/promotion/stalemate/
 draw set-piece scenes, elaborate checkmate finale
 Prior: v1.1 — battle-end fix, curtain hold, camera views, quit confirm,
 mid-battle resize
+
+V2.5 CHANGES — ITCH.IO RELEASE PREP (ship/marketing; PASS A1 of next_steps_2.txt)
+  (verified: chess 34/34; node --check js/main.js; build/make_web_build.sh produces a
+  zip with the flag = false [confirmed] while the repo index.html stays true; a headless
+  load of the SHIPPED build with ?shot=board&view=flat shows the TITLE screen, i.e. dev
+  hooks are inert; the repo build's hooks still work — all 8 storefront stills + the GIF
+  captured clean with no error overlay. NO engine/chess/ai/battle/choreography change;
+  shipped code changed only by one flag line [index.html] + one guard line [main.js].)
+  - DEV-HOOK FLAG: index.html gained an inline <script>window.__MG_DEV__ = true;</script>
+    just before the js/ <script> block (with a comment). js/main.js debugHook() now
+    early-returns `if (!window.__MG_DEV__) return;` before reading location.search.
+    debugHook is the ONLY URL-param reader in the app (verified by grep), so this one
+    guard gates ALL dev hooks (?shot=/?reel=/?screen=/?puzzle=). Repo = true (hooks on
+    for dev/test/capture); release = false.
+  - BUILD SCRIPT: build/make_web_build.sh (NEW) replaces the manual rsync recipe — it
+    rsyncs index.html/css/js/fonts into build/maestros-gambit-web/, sed-flips
+    __MG_DEV__ to false in the SHIPPED index.html ONLY, deletes ._*/.DS_Store, and zips
+    with index.html at the root. build/README.txt updated to point at it + document the
+    itch embed settings (1280x720, fullscreen on, auto-start OFF so WebAudio unlocks on
+    the first click). The repo source is never modified by the build.
+  - ONLINE DEGRADES GRACEFULLY (confirmed, no code change needed): js/net.js only opens
+    the wss:// relay on an explicit Host/Join from the lobby (_connect), never on load;
+    single-player / Duet / Puzzles / PGN / reel never touch it, so a down relay affects
+    Online Duel only. net.js already refuses ws:// from an https page (line ~60).
+  - WEBAUDIO UNLOCK (confirmed): js/audio.js resume() runs on user-gesture SFX
+    (uiClick/uiBack/move/…); the itch "click to run" frame supplies the first gesture.
+  - MARKETING KIT (promo/, regenerable): capture_assets.sh drives headless Chrome over
+    the repo's dev hooks to grab 8 framed stills (title sting, piano-drop duel, Classic
+    2D + markers, Career ladder, a puzzle, the CB-safe theme, the checkmate finale, the
+    "A Star Is Born" promotion) at 1280x720 + an example loop GIF (ffmpeg). itch_page.md
+    = paste-ready page copy (leads with the SPECTACLE for non-chess buyers).
+    itch_launch_checklist.md = step-by-step [AI]/[YOU] launch guide.
+  - .gitignore: the blanket `promo/` ignore (kept the ~187MB mp4/screenflow out) is
+    narrowed to promo/trailer_reel.mp4 + promo/*.screenflow + promo/screenshots/ +
+    promo/.gifframes/, so the SOURCE deliverables (copy, checklist, capture script) are
+    tracked while generated media stays out (matches the shots/ convention).
+  - ROADMAP: history/ folder added; the completed post-v1.8 roadmap is archived to
+    history/next_steps_post-v1.8_DONE.txt; the live roadmap is next_steps_2.txt
+    (TIER A ship → B Steam → C differentiate/deepen → D mobile). A1 (this) is done.
 
 V2.4 CHANGES — CLASSIC 2D BOARD VIEW (presentation only)
   (verified: chess 34/34; rating 20/20; node --check on js/board.js, js/main.js,

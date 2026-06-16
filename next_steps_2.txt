@@ -1,0 +1,497 @@
+MAESTRO'S GAMBIT — NEXT STEPS, ROUND 2 (the "ship it & sell it" roadmap)
+Created: 2026-06-16  (current build: v2.4)
+Supersedes: history/next_steps_post-v1.8_DONE.txt (all 5 passes there are DONE)
+
+==================================================================
+THE HONEST STRATEGIC PICTURE  (read this first)
+==================================================================
+Maestro's Gambit is, as SOFTWARE, basically done. Full chess rules, a rated
+10-persona ladder with an opening book + transposition table, a Career climb,
+Puzzles, PGN, online duel + relay, profiles + Elo/Glicko-2, accessibility, a
+custom font, four board views, full battle choreography, a synth soundtrack, a
+recorded trailer (promo/trailer_reel.mp4) AND a deployable web build
+(build/maestros-gambit-web.zip). That is further than most "I'll sell a little
+game" projects ever get.
+
+So the bottleneck to "a few bites on itch / Steam / App Store" is NOT more engine
+features. In a congested market the things that actually move a $0.99–$1.99 game:
+   1. It has to be PURCHASABLE somewhere (packaging + a store page). Right now it
+      isn't on any store. This is the single biggest gap.
+   2. A non-chess-expert who lands on the page has to instantly "get it" — the
+      SPECTACLE (the animated orchestra duels) is the hook, not the chess. The
+      page/trailer/first-run must sell the spectacle, and the game must onboard a
+      casual buyer who hasn't touched chess since school.
+   3. ONE thing that makes a reviewer/streamer say a sentence about it — a
+      differentiator beyond "Battle Chess clone." That's the Story/Campaign hook.
+
+So this roadmap is front-loaded with SHIP + MARKET + ONBOARD, then a
+differentiating hook, then depth/credibility, then mobile. Engine richness and
+extra content matter, but they come AFTER the game is actually for sale.
+
+WHAT I (the AI) CAN AND CAN'T DO HERE — be realistic:
+  CAN:   prep/verify builds, write all store + press copy, generate framed stills
+         & GIF frames via the ?shot=/?reel= hooks, build in-game onboarding,
+         write packaging scaffolds (Electron/Tauri/Capacitor configs, Steamworks
+         glue, manifests, icons-from-canvas), design a campaign, strengthen the
+         engine, add modes.
+  CAN'T: create your itch/Steam/Apple accounts, pay the Steam Direct $100 or Apple
+         $99/yr, click "publish", record screen video, or sign/notarize native
+         builds on your machine. Those stay yours — I'll get everything to the
+         one-click-from-live state and hand you a checklist.
+
+HOW TO USE THIS FILE (same as before)
+  Each PASS is a self-contained unit with a copy/paste PROMPT and a suggested
+  model + effort. Start each in a FRESH thread (the prompt re-reads PROJECT_STATE,
+  so cold context loses nothing and costs less). Tick the [ ] as you go.
+  Effort: "high" = thorough/token-heavy (engine, exact specs); "medium" = most
+  UI/content/marketing work; "low" = small mechanical passes.
+
+==================================================================
+EXECUTION ORDER  (do-first at the top; tiers are loose, reorder freely)
+==================================================================
+TIER A — GET IT LIVE (lowest effort, highest leverage; starts the feedback loop)
+  [ ] A1  Ship to itch.io (web build hygiene + store page + screenshots/GIFs)  medium
+  [ ] A2  First-run onboarding / "How to Play" for casual buyers ............. medium
+  [ ] A3  Storefront art + press kit (capsule/key art, icon, GIF set, copy) .. medium
+
+TIER B — STEAM (the real revenue path; bigger lift, $100 Steam Direct is yours)
+  [ ] B1  Desktop wrapper (Tauri/Electron) + Steamworks (achievements, cloud) . high
+  [ ] B2  Steam store page + wishlist/launch campaign copy .................... medium
+
+TIER C — DIFFERENTIATE & DEEPEN (give reviewers a sentence; add replay value)
+  [ ] C1  Campaign / Story mode over the Career ladder (THE hook) ............ high
+  [ ] C2  Richer evaluation engine pass (honest >2000 rungs, chess cred) ..... high/max
+  [ ] C3  Retention content: Daily Puzzle + streak, loadable puzzle book ..... medium
+  [ ] C4  Chess960 / fun variants (FEN loader already exists) ................ medium
+  [ ] C5  More spectacle: boss duels + 2–3 more soundtrack tracks ............ medium
+
+TIER D — MOBILE (largest market, most packaging friction)
+  [ ] D1  Capacitor iOS/Android wrapper + App Store / Play packaging ......... high
+
+CARRIED-FORWARD VALIDATIONS (playtest only — no prompt, just play & note bugs)
+  [ ] V1  Real-network + real-device ONLINE test (deploy relay to Render; play
+          across two networks/devices; confirm wss:// + free-tier cold start).
+  [ ] V2  Real MOBILE pass on actual iOS/Android (safe-area, WebAudio unlock on
+          first touch, low-end battle frame rate, pinch-zoom suppression).
+
+WHY THIS ORDER
+  - You can't get bites on something nobody can buy. A1 makes it purchasable in
+    days, on the friendliest store (itch: HTML5 runs in the browser, no native
+    build, pay-what-you-want or $1.99). That also gives you REAL feedback before
+    you spend on Steam/Apple fees.
+  - A2 before any launch: most buyers aren't chess players; without onboarding the
+    spectacle never lands and you get "I don't know what I'm doing" refunds.
+  - Steam (B) is where the money is, but it's the $100 + native-build tier — do it
+    once itch has validated interest and copy.
+  - C1 (Story) is the cheapest way to stop being "a Battle Chess clone" and become
+    "that orchestra chess game with the campaign" — high perceived value, mostly
+    text + reuse of existing scenes.
+  - Mobile (D) is last: biggest audience but the heaviest packaging/review friction
+    and the existing v1.4 mobile support still needs the V2 real-device playtest.
+
+==================================================================
+PASS A1 — SHIP TO ITCH.IO  (Opus, medium)
+==================================================================
+WHY: itch.io is the fastest path from "finished" to "for sale" — an HTML5 game can
+be played in the browser embed (no native build, no fees beyond a revenue cut),
+priced $1.99 or pay-what-you-want. It's the right place to validate the page/copy
+and gather feedback before the Steam/Apple spend. The web build already exists; this
+pass makes it itch-ready and produces the page assets.
+
+PROMPT:
+----------------------------------------------------------------------------
+Continue work on "Maestro's Gambit" (read PROJECT_STATE.txt + skim README.md
+first; don't restructure what works; keep everything copyright-original). When
+done, update PROJECT_STATE.txt + README.md, then commit & push.
+
+This pass prepares an itch.io release. The game is finished; do NOT add gameplay.
+ (A) WEB-BUILD HYGIENE for an itch HTML5 embed:
+   - Confirm the game runs from a plain folder with no server and no file:// quirks
+     (itch serves it over https from a sandboxed iframe). Check: WebAudio unlocks on
+     first user gesture (itch shows a "click to run" frame — fine), localStorage
+     works inside the iframe, no mixed-content (the online-duel wss:// relay must not
+     break the offline single-player path if the relay is down — degrade gracefully).
+   - Strip the dev debugHook() URL params from the SHIPPED build only (keep them in
+     the repo). Provide a tiny build flag or a documented strip step so ?shot=/?reel=
+     /?screen= aren't exposed to players. Regenerate build/ via the documented steps.
+   - Add an itch "fullscreen" friendly canvas sizing check and a sane default embed
+     size (note the recommended width/height for the itch page in the build README).
+ (B) PAGE ASSETS (generate, don't upload — I can't):
+   - A SCREENSHOT SET (6–8) grabbed headlessly via the ?shot= hooks with &clean=1:
+     title, a mid-battle peak (piano-drop), the Classic 2D board, the Career ladder,
+     a puzzle, the colourblind board theme. Put them in promo/ at itch's preferred
+     sizes; list each filename + what it shows.
+   - 2–3 looping GIFs from the reel/battle hooks (a duel, the checkmate finale, a
+     promotion) for the page — frames via ?reel=1&t= / ?shot=battle&ff=; document the
+     ffmpeg/gifski command to assemble them (I can produce frames; you run the encoder
+     or I script it).
+ (C) STORE COPY in a new promo/itch_page.md: title, tagline, short blurb, long
+     description (lead with the SPECTACLE for non-chess buyers, then the chess depth),
+     feature bullets, controls, "made of 100% original procedural art/audio" note,
+     suggested tags, suggested price ($1.99 + "pay more if you like it"), and the
+     trailer placement (promo/trailer_reel.mp4 already exists).
+ (D) A SHIP CHECKLIST in promo/itch_launch_checklist.md: account, create project,
+     upload zip as "HTML5/playable in browser", set embed size, attach trailer +
+     screenshots, price, tags, publish. Mark each step AI-done vs you-do.
+ Verify: the stripped build runs clean headless with zero console errors; all
+ referenced promo assets exist; node tests still green (node tests/test_chess.js).
+----------------------------------------------------------------------------
+
+==================================================================
+PASS A2 — FIRST-RUN ONBOARDING / "HOW TO PLAY"  (Opus, medium)
+==================================================================
+WHY: the buyers most likely to enjoy the spectacle are NOT chess experts. Today the
+game assumes you know chess and where everything is. A light first-run flow + a
+"How to Play" panel converts curious browsers into satisfied owners (and cuts refund
+risk). This is pure UI/UX over the finished game — low engine risk.
+
+PROMPT:
+----------------------------------------------------------------------------
+Continue work on "Maestro's Gambit" (read PROJECT_STATE.txt + skim README.md
+first; don't restructure what works; keep everything copyright-original). When
+done, update PROJECT_STATE.txt + README.md, then commit & push.
+
+This pass adds ONBOARDING for non-expert players (mostly index.html, css/style.css,
+js/ui.js, js/main.js; persist a "seen it" flag in mg_prefs). No rules/engine change.
+ - A FIRST-RUN welcome card (shown once; re-openable from the menu): 3–4 panels in
+   the orchestra voice — "every capture is a duel", how to move (click/tap a
+   musician, then a highlighted square), what the highlight markers mean (the
+   shape-coded ring=capture / note=quiet from the a11y theme), and where to start
+   (Solo Recital vs the easiest conductor). Skippable; "Don't show again".
+ - A persistent "How to Play" entry in the title menu and/or Options: a concise
+   reference — controls, the View button (incl. Classic 2D), Quick Captures toggle,
+   Reduce Motion, what a "rated" game means, how the Career ladder unlocks. Reuse the
+   existing modal/screen styling; keep copy tight.
+ - OPTIONAL low-effort win: a "Learn Chess?" one-liner linking the existing Puzzles
+   as a gentle on-ramp, and make sure the EASIEST persona is obviously the suggested
+   first opponent (label/sort).
+ - Keep it accessible (honours Reduce Motion; keyboard/Esc closable; readable at
+   mobile sizes).
+ Verify: node --check on touched files; headless screenshot of the welcome card and
+ the How to Play panel (add a ?screen= hook if helpful); the "seen" flag round-trips
+ in localStorage; node tests/test_chess.js still green.
+----------------------------------------------------------------------------
+
+==================================================================
+PASS A3 — STOREFRONT ART + PRESS KIT  (Opus, medium)
+==================================================================
+WHY: every store needs key art / a capsule / an icon you CANNOT license in (must be
+original). The trailer + in-game stills exist; this pass produces the framed,
+correctly-sized marketing image set and a reusable press kit so A1/B2/D1 can all draw
+from one source. Spectacle-forward art is what earns the click in a crowded list.
+
+PROMPT:
+----------------------------------------------------------------------------
+Continue work on "Maestro's Gambit" (read PROJECT_STATE.txt + skim README.md
+first; keep everything copyright-original — NO third-party art/fonts in shipped
+marketing; the Cinzel font is OFL and fine for promo text). When done, update
+PROJECT_STATE.txt, then commit & push.
+
+This pass builds a reusable MARKETING ASSET KIT in promo/ (no gameplay change).
+ - KEY ART / CAPSULE: compose hero images from the game's own procedural scenes
+   (grab high-res framed stills via ?shot= &clean= — e.g. the two conductors facing
+   off, a piano-drop peak) and lay the Cinzel wordmark + tagline over them. Produce
+   the standard sizes you'll reuse everywhere: a square ICON (for app stores / itch
+   thumbnail), a wide HEADER/CAPSULE, and a vertical/poster. Note exact px per target
+   store. If a Canva MCP is available it can help with layout/typesetting; otherwise
+   build them with canvas/SVG composited over the stills — but ALL imagery must come
+   from the game or be original.
+ - PRESS KIT (promo/presskit/): factsheet (title, genre, price, platforms,
+   release status, "100% original procedural assets" line, dev contact = your email),
+   the screenshot set, the trailer link, the key art, a short + long description, and
+   a quotable one-liner. Follow the common "presskit()" structure so press/streamers
+   can self-serve.
+ - A single promo/ASSET_INDEX.md listing every asset, its size, and where it's used
+   (itch / Steam / App Store / Play), so later store passes don't regenerate art.
+ Verify: every listed asset file exists at the stated size; nothing references a
+ non-original/licensed asset; the wordmark uses the bundled Cinzel only.
+----------------------------------------------------------------------------
+
+==================================================================
+PASS B1 — DESKTOP WRAPPER + STEAMWORKS  (Opus, high)
+==================================================================
+WHY: Steam is the real revenue path for a paid game and the place "a few bites"
+realistically come from. The game is file://-safe and dependency-free, so wrapping it
+is straightforward; the value-add is native packaging + Steam achievements (the
+profile system already persists Steam-achievement-ready band/clear flags) and Steam
+Cloud for the profile save. Tauri is lighter/smaller than Electron and a good fit.
+
+PROMPT:
+----------------------------------------------------------------------------
+Continue work on "Maestro's Gambit" (read PROJECT_STATE.txt + skim README.md
+first; don't restructure what works; keep everything copyright-original). When
+done, update PROJECT_STATE.txt + README.md, then commit & push.
+
+This pass packages the finished web game as a DESKTOP app for Steam.
+ - Pick Tauri (preferred: tiny, uses the OS webview) OR Electron (heavier but
+   bulletproof); justify briefly in PROJECT_STATE. Scaffold it in a new desktop/
+   dir that POINTS AT the existing web files (no fork of the game source — symlink or
+   copy at build time so the repo stays single-source). Window: titled, sane min
+   size, fullscreen toggle, app icon from PASS A3.
+ - Confirm everything works in the wrapper: WebAudio, localStorage (→ a real userdata
+   path), the four views, battles, the reel. The online-duel relay (wss://) should
+   work or degrade gracefully offline.
+ - STEAMWORKS GLUE (gated behind a build flag so the web/itch build is untouched):
+   map the EXISTING per-band "Class cleared!" flags and the "Ladder Complete" finale
+   to Steam ACHIEVEMENTS; add a couple more obvious ones (win a rated game, solve all
+   puzzles, watch the Overture). Use Steam CLOUD to sync the mg_profiles save. Keep it
+   all optional — a no-Steam run must still work for local testing.
+ - Document the BUILD + UPLOAD steps (steamcmd / steampipe, depot layout, the App ID
+   placeholder) in desktop/README.md, marking AI-done vs you-do (you create the Steam
+   app, pay Steam Direct $100, set the App ID, sign/upload).
+ Verify: the desktop app launches and plays a full game locally with zero console
+ errors; the web/itch build is byte-for-byte unaffected when the desktop/Steam flag
+ is off; node tests/test_chess.js + test_rating.js still green.
+----------------------------------------------------------------------------
+
+==================================================================
+PASS B2 — STEAM STORE PAGE + WISHLIST CAMPAIGN  (Opus, medium)
+==================================================================
+WHY: on Steam, wishlists before launch drive the launch-day visibility spike. The
+page copy, capsule set, and a short "coming soon / wishlist now" plan are what turn
+the trailer into wishlists. Reuses PASS A3 art + the trailer.
+
+PROMPT:
+----------------------------------------------------------------------------
+Continue work on "Maestro's Gambit" (read PROJECT_STATE.txt first). This pass is
+copy/marketing only — no code. Produce in promo/steam/:
+ - The full STEAM STORE PAGE copy: name, short description (the <=300-char hook —
+   spectacle first), about-this-game long copy with section headers, feature bullets,
+   "mature content" = none, tags, language = English, system requirements (trivial),
+   and which capsule/screenshots/trailer go where (reference promo/ASSET_INDEX.md).
+ - The capsule TEXT overlays / store-asset spec mapped to Steam's exact required
+   sizes (header capsule, small/main/vertical capsules, library art, page background)
+   so PASS A3 art is cropped/typeset correctly; flag any size still missing.
+ - A WISHLIST CAMPAIGN plan: a "Coming Soon" page first, a short devlog/announcement
+   cadence, where to post (the itch audience from A1, relevant subreddits/Discords,
+   a Steam Next Fest demo option), and a launch-discount suggestion. Keep it honest
+   and low-effort — this is a $1.99 indie, not a marketing department.
+ - A LAUNCH CHECKLIST (promo/steam/launch_checklist.md): app created, Steam Direct
+   paid, store page filled, build uploaded via PASS B1, age/anti-cheat/region forms,
+   review submitted, set release date. Mark AI-done vs you-do.
+----------------------------------------------------------------------------
+
+==================================================================
+PASS C1 — CAMPAIGN / STORY MODE  (Opus, high)  ← the differentiator
+==================================================================
+WHY: this is the cheapest way to stop being "another Battle Chess clone." Wrap the
+EXISTING Career ladder in a light narrative — you're a young conductor rising from a
+street ensemble to the grand concert hall, challenging each rival maestro — with
+short between-match story beats and a real ending. It reuses the ladder, personas,
+banter, and battle scenes; it's mostly writing + a thin presentation layer, but it's
+the thing a reviewer/streamer actually describes. High perceived value for a $1.99
+game.
+
+PROMPT:
+----------------------------------------------------------------------------
+Continue work on "Maestro's Gambit" (read PROJECT_STATE.txt + skim README.md
+first; don't restructure what works; keep everything copyright-original). When
+done, re-run node tests/test_chess.js + test_rating.js, update PROJECT_STATE.txt +
+README.md, then commit & push.
+
+This pass adds a CAMPAIGN / STORY mode layered over the existing Career ladder
+(js/opponents.js progression, js/profiles.js, Career screen, js/main.js endGame).
+Keep it ADDITIVE — Free Play, the rated ladder, and the opponent picker stay as-is.
+ - WRITE an original through-line (all your own text, copyright-clean): the player is
+   a rising conductor; each rung is a rival maestro/venue with a short PG intro beat
+   (2–4 lines, orchestra-flavoured, reusing the persona's voice/banter) BEFORE the
+   match and a reaction beat AFTER (win or loss), building to a finale when Maestro
+   Magnus falls. Store the script as data (js/campaign.js or extend opponents) so
+   it's easy to edit and stays DOM-free/testable.
+ - PRESENTATION: a simple story card before/after each campaign match (reuse the
+   modal/title-card styling and the reel's gold-card look; honour Reduce Motion). No
+   new art needed — lean on the existing scenes/stills as backdrops. Optional: a
+   short opening crawl and an ending card.
+ - PROGRESSION: campaign uses the SAME unlock/defeat tracking already persisted per
+   profile; just present it as a story climb with chapter names. Add a "Campaign"
+   entry to the title menu distinct from "Free Play". A campaign-complete flag → a
+   Steam achievement (ties into PASS B1).
+ - Keep it skippable for chess-first players (a "skip story" toggle).
+ Verify: node --check; the campaign plays start→finish driving real games; the story
+ flags round-trip in localStorage; a headless screenshot of an intro story card;
+ chess + rating tests still green.
+----------------------------------------------------------------------------
+
+==================================================================
+PASS C2 — RICHER EVALUATION ENGINE PASS  (Opus, high/max — solo, engine)
+==================================================================
+WHY: this is the documented remaining prerequisite (PROJECT_STATE backlog) for an
+HONEST persona above ~2010. v2.2 added the opening book + transposition table but
+explicitly NOT a richer eval, so the ladder honestly caps at Expert. A real
+mobility/king-safety/pawn-structure eval both raises the honest ceiling (one or two
+new top rungs) and earns credibility with chess-savvy reviewers. Touches the
+unit-tested core, so do it ALONE and re-verify hard. Use "max" effort for the
+strongest result.
+
+PROMPT:
+----------------------------------------------------------------------------
+Continue work on "Maestro's Gambit" (read PROJECT_STATE.txt + skim README.md
+first; don't restructure what works; keep everything copyright-original). When
+done, re-run node tests/test_chess.js (MUST stay green incl. perft(4)=197281),
+node tests/test_ai.js, node tests/test_rating.js, and node tests/strength_probe.js,
+update PROJECT_STATE.txt + README.md, then commit & push.
+
+This pass adds a RICHER STATIC EVALUATION to js/ai.js (and only read-only helpers in
+js/chess.js if needed — do NOT change move generation; perft must stay identical).
+ - Add evaluation terms beyond material + the existing piece-square sense: MOBILITY
+   (legal-move / attack counts per side), KING SAFETY (pawn shield, open files near
+   the king, attacker count on the king zone), and PAWN STRUCTURE (doubled, isolated,
+   passed pawns). Tapered eval (midgame→endgame phase) if it's not too costly. Keep
+   it fast enough for the existing node budgets.
+ - Preserve the fail-soft quiescence behaviour noted in PROJECT_STATE (the historic
+   fail-hard mate-score bug must NOT resurface). The transposition table + iterative
+   deepening from v2.2 stay.
+ - MEASURE honestly with strength_probe.js (self-play A/B old-vs-new eval at equal
+   budget, and the ladder-gradient probe). ONLY THEN, if the measurement supports it,
+   add 1–2 higher-rated personas to js/opponents.js — and keep them honest (the
+   PROJECT_STATE rule: the ladder must not lie about strength). If self-play gains
+   don't translate to a defensible rating, add NO new rung and say so.
+ Verify: chess perft unchanged; all engine/rating tests green; node --check on
+ touched files; record the A/B result in PROJECT_STATE.
+----------------------------------------------------------------------------
+
+==================================================================
+PASS C3 — DAILY PUZZLE + STREAK + LOADABLE PUZZLE BOOK  (Opus, medium)
+==================================================================
+WHY: a daily puzzle + streak is a proven cheap retention hook ("come back tomorrow"),
+and the v2.0 notes already flag a larger/loadable puzzle book as an easy follow-up
+(the FEN loader exists). More puzzles = more reasons to keep the app installed and
+more value per dollar.
+
+PROMPT:
+----------------------------------------------------------------------------
+Continue work on "Maestro's Gambit" (read PROJECT_STATE.txt + skim README.md
+first; don't restructure what works; keep everything copyright-original). When
+done, re-run node tests/test_chess.js + (if present) test_pgn.js, update
+PROJECT_STATE.txt + README.md, then commit & push.
+
+This pass expands Puzzles (js/puzzles.js, the Puzzles screen, js/profiles.js).
+ - BIGGER BOOK: grow the curated set (aim 30–50) across mate-in-1/2/3 + win-material,
+   each {id, fen, sideToMove, solutionSANs[], blurb}, authored ORIGINAL (compose them
+   yourself / verify with the engine — don't import a copyrighted problem set). Group
+   by difficulty.
+ - DAILY PUZZLE: a deterministic "puzzle of the day" picked by date (seeded index, no
+   network) so every player gets the same one each day; track a per-profile STREAK +
+   best streak + solved-count, persisted in mg_profiles. A small "Daily" entry on the
+   title menu and a streak readout.
+ - Reuse the existing solve/verify flow and the battle scene on the solving blow; keep
+   wrong tries waved off. Honour Reduce Motion.
+ - Optional: a "solved all" achievement flag (ties into PASS B1).
+ Verify: every puzzle's solutionSANs validate against the engine from its FEN (add a
+ test that loops the book and asserts the first solution move is legal + leads to the
+ claimed result); streak/daily flags round-trip; node --check; chess tests green.
+----------------------------------------------------------------------------
+
+==================================================================
+PASS C4 — CHESS960 / FUN VARIANTS  (Opus, medium)
+==================================================================
+WHY: the FEN loader added in v2.0 makes Chess960 (Fischer Random) cheap, and variants
+add replay value + "kills the every-game-opens-the-same feel" for casual players. A
+small, well-scoped set of variants is a nice bullet on the store page without big
+engine risk.
+
+PROMPT:
+----------------------------------------------------------------------------
+Continue work on "Maestro's Gambit" (read PROJECT_STATE.txt + skim README.md
+first; don't restructure what works; keep everything copyright-original). When
+done, re-run node tests/test_chess.js (MUST stay green incl. perft), update
+PROJECT_STATE.txt + README.md, then commit & push.
+
+This pass adds optional GAME VARIANTS, gated so standard chess is untouched by default.
+ - CHESS960 (Fischer Random): generate a legal random back-rank start (bishops on
+   opposite colours, king between rooks) as a FEN and start from it via the existing
+   FEN loader. Handle 960 CASTLING correctly (king/rook target squares by the
+   Chess960 rule) OR, if full 960-castling is too invasive for the move generator,
+   scope it honestly (e.g. "no castling in 960" clearly labelled) — decide and
+   document, don't half-implement castling. Add a perft check for at least one 960
+   position if castling is supported.
+ - At most ONE more light variant if cheap and safe (e.g. King of the Hill =
+   reach the centre to win, a pure win-condition check) — only if it doesn't
+   complicate the rules engine. Skip anything that needs new move rules.
+ - A "Variant" selector on the setup screen (default Standard). Battles/views/reel
+   all reuse the existing pipeline.
+ Verify: standard perft(4)=197281 UNCHANGED; any new variant has a sanity test;
+ node --check; a headless screenshot of a 960 start position.
+----------------------------------------------------------------------------
+
+==================================================================
+PASS C5 — MORE SPECTACLE: BOSS DUELS + MORE MUSIC  (Opus, medium)
+==================================================================
+WHY: the spectacle IS the product. A couple of special "boss" duel set-pieces for the
+top maestro(s) and 2–3 more soundtrack tracks deepen the thing people actually buy it
+for, and give the trailer/store GIFs fresh moments. Lower priority than shipping, but
+the most on-brand way to spend a content pass.
+
+PROMPT:
+----------------------------------------------------------------------------
+Continue work on "Maestro's Gambit" (read PROJECT_STATE.txt + skim README.md
+first; don't restructure what works; keep everything copyright-original — all art &
+audio stay 100% procedural/original). When done, re-run node tests/test_chess.js and
+the choreography soak (?shot=soak must report all scenes), update PROJECT_STATE.txt +
+README.md, then commit & push.
+
+This pass adds SPECTACLE content (js/battle.js choreography, js/audio.js soundtrack,
+js/sprites.js/fx.js as needed). No rules/engine change.
+ - 2–3 new SOUNDTRACK tracks in the existing synth-chamber style (note data through
+   the existing instrument voices — no samples), selectable in Options alongside the
+   current three.
+ - One or two "BOSS" duel set-pieces for the highest maestro(s): a grander,
+   longer choreography variant used when you face/beat them (reuse the finale
+   pipeline; add takes, not new rules). Make sure the soak hook covers any new takes.
+ - Optional small fx polish that reads well in GIFs.
+ Verify: ?shot=soak reports all choreographies+scenes complete; node --check;
+ a couple of headless stills of the new boss take; chess tests green.
+----------------------------------------------------------------------------
+
+==================================================================
+PASS D1 — MOBILE WRAPPER (iOS / ANDROID)  (Opus, high)
+==================================================================
+WHY: phones are the biggest audience for a $0.99–$1.99 casual game, and v1.4 already
+added mobile/responsive support — so the gap is packaging + the V2 real-device
+playtest, not a rewrite. Most friction is the native toolchains and store reviews
+(Apple $99/yr, Google $25 one-time). Do this once itch/Steam have validated demand.
+
+PROMPT:
+----------------------------------------------------------------------------
+Continue work on "Maestro's Gambit" (read PROJECT_STATE.txt + skim README.md
+first; don't restructure what works; keep everything copyright-original). When
+done, update PROJECT_STATE.txt + README.md, then commit & push.
+
+This pass packages the web game for the App Store + Google Play via Capacitor.
+ - Scaffold Capacitor in a new mobile/ dir pointing at the existing web files (single
+   source — don't fork the game). Configure app id, name, icon (PASS A3) and splash.
+ - MOBILE-SPECIFIC HARDENING (verify against the v1.4 work): WebAudio unlock on first
+   touch, iOS safe-area insets, suppress pinch-zoom/double-tap-zoom, lock orientation
+   if appropriate, status-bar styling, and a sane low-end battle frame rate (lean on
+   the existing Reduce Motion / Quick Captures path). localStorage persists to the
+   app container.
+ - Online-duel relay (wss://) must work on cellular or degrade gracefully offline.
+ - Document the BUILD + SUBMIT steps in mobile/README.md (Xcode signing/notarize +
+   App Store Connect; Android Studio signed AAB + Play Console), marking AI-done vs
+   you-do (accounts, signing, screenshots-on-device, review submission). Note that
+   Apple needs a Mac (you have one) + $99/yr; Google is a $25 one-time fee.
+ Verify (what's verifiable without devices): the web build loads inside the Capacitor
+ webview in a simulator/emulator with zero console errors; the wrapper is off by
+ default for the plain web/itch build; node tests/test_chess.js green. The on-device
+ pass is carried-forward validation V2 (you playtest on a real phone).
+----------------------------------------------------------------------------
+
+==================================================================
+NOTES
+==================================================================
+ - DO ITCH FIRST. It is the only store where you can be live this week with zero
+   fees and no native build, and the feedback will sharpen everything before you pay
+   Steam/Apple. Treat A1–A3 as one "launch week" cluster.
+ - The COMMERCIAL-ORIGINAL guarantee still governs everything: no third-party art,
+   fonts (Cinzel OFL is the one allowed, and it's fine), audio, or "Battle Chess"
+   references in any shipped text OR marketing asset. Marketing imagery must come
+   from the game's own procedural scenes or be original.
+ - WHAT NEEDS YOU (not the AI): creating store accounts, paying fees (Steam Direct
+   $100, Apple $99/yr, Google $25), clicking publish, recording any NEW video (the
+   trailer already exists), and signing/notarizing native builds. Each packaging pass
+   ends with an explicit AI-done vs you-do checklist.
+ - Threading: start EACH pass in a fresh session and paste its prompt (they re-read
+   PROJECT_STATE first, so a cold thread loses nothing and costs less). Tick the [ ]
+   in the EXECUTION ORDER list as you finish.
+ - When a pass lands, note the version it shipped in next to its checkbox (like the
+   archived roadmap did), so this file stays a live ledger.

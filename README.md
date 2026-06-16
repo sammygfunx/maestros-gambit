@@ -34,6 +34,17 @@ Open **`index.html`** in any modern browser (Chrome, Edge, Firefox, Safari).
 No build step, no server, no dependencies — everything (art, animation, sound)
 is generated procedurally at runtime.
 
+## Build a release / publish
+Run `bash build/make_web_build.sh` to produce `build/maestros-gambit-web.zip`
+(`index.html` at the zip root) — the same bundle for **itch.io** (HTML5, playable in
+browser; embed at 1280×720 with the fullscreen button on) or **Netlify** (drag-and-drop
+static site). The build strips the dev URL hooks: the repo's `index.html` sets
+`window.__MG_DEV__ = true` so the `?shot=`/`?reel=`/`?screen=` testing params work in
+development, and the script flips it to `false` in the shipped copy so players can't
+reach them. Storefront copy, a launch checklist, and a screenshot/GIF capture script
+live in `promo/` (`itch_page.md`, `itch_launch_checklist.md`, `capture_assets.sh`).
+The roadmap for getting it sold is `next_steps_2.txt`.
+
 ## Features
 - Full chess rules: castling, en passant, promotion, check/checkmate, stalemate,
   fifty-move rule, threefold repetition, insufficient material.

@@ -29,9 +29,20 @@ NOTES
     this file).
 
 REGENERATING THIS BUILD
-  From the repo root:
-    rm -rf build/maestros-gambit-web build/maestros-gambit-web.zip
-    mkdir -p build/maestros-gambit-web
-    rsync -a index.html css js fonts build/maestros-gambit-web/
-    find build/maestros-gambit-web -name '._*' -delete
-    (cd build/maestros-gambit-web && zip -r -X ../maestros-gambit-web.zip . -x '*/._*')
+  From the repo root, just run:
+    bash build/make_web_build.sh
+  That copies the runtime files, STRIPS the dev URL hooks (sets
+  window.__MG_DEV__ = false so players can't reach ?shot=/?reel=/?screen=), removes
+  macOS ._* sidecars, and writes maestros-gambit-web/ + maestros-gambit-web.zip.
+
+ITCH.IO (HTML5, playable in browser)
+  The same zip is the itch upload. Tick "This file will be played in the browser",
+  set the embed viewport to 1280x720, enable the Fullscreen button, and leave
+  "auto-start on page load" OFF (so the first click unlocks WebAudio). Full steps +
+  page copy: promo/itch_launch_checklist.md and promo/itch_page.md.
+
+DEV HOOKS
+  The repo's index.html has <script>window.__MG_DEV__ = true;</script>, which enables
+  the ?shot=/?reel=/?screen= dev/testing URL params (js/main.js debugHook). The build
+  script flips it to false in the SHIPPED copy only, so the hooks work in development
+  but are not exposed to players.

@@ -116,6 +116,9 @@
     /* dev/testing: ?shot=board | ?shot=battle&att=Q&def=K&mate=1&ff=5&clean=1 | &warp=10
        ?reel=1 plays the trailer; ?reel=1&t=SECONDS freezes one frame for a still. */
     debugHook() {
+      // Dev/testing URL hooks are stripped from release builds (window.__MG_DEV__
+      // is set false by build/make_web_build.sh) so players can't reach them.
+      if (!window.__MG_DEV__) return;
       const q = new URLSearchParams(location.search);
       const screen = q.get('screen');
       if (screen === 'online') { MG.UI.setup.mode = 'online'; MG.UI.openLobby(); return; }
