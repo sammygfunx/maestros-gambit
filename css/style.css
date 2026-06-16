@@ -51,8 +51,10 @@ html, body {
 /* Panels that scroll keep vertical panning. */
 #move-list, .howto-body, .modal-card, .screen { touch-action: pan-y; }
 
-/* Fill the visual viewport, but pad clear of notches/home indicators. */
-#app { position: relative; width: 100vw; height: 100vh; }
+/* Fill the visual viewport, but pad clear of notches/home indicators.
+   100dvh (dynamic viewport) tracks the *visible* area so menus aren't hidden
+   behind the mobile browser toolbar; 100vh is the fallback for old engines. */
+#app { position: relative; width: 100vw; height: 100vh; height: 100dvh; }
 
 #game-canvas {
   position: absolute; inset: 0;
@@ -66,10 +68,20 @@ html, body {
 .screen {
   position: absolute; inset: 0;
   display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
+  align-items: center; justify-content: safe center;
   gap: 18px;
   z-index: 20;
   padding: 24px;
+  padding-top: max(24px, env(safe-area-inset-top));
+  padding-bottom: max(24px, env(safe-area-inset-bottom));
+  /* Always scroll when the content is taller than the viewport so the Back
+     button (and everything else) stays reachable at any zoom / orientation /
+     device. 'safe center' keeps the content centred when it fits but falls
+     back to top-aligned — never clipping the first row — when it overflows.
+     (Browsers that don't grok the 'safe' keyword drop the rule and default to
+     top-aligned, which is still fully scrollable — so Back is always reachable.) */
+  overflow-y: auto; overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
   text-align: center;
 }
 .hidden { display: none !important; }
@@ -500,7 +512,10 @@ html, body {
   display: flex; gap: 10px; align-items: center;
   width: min(520px, 100%); margin: 0 auto 6px;
 }
-.profile-name-input { flex: 1; letter-spacing: 1px; text-align: left; text-transform: none; }
+/* a name field, not a room code — keep it modest so the full placeholder shows
+   ("New profile name") instead of clipping to "New pr" on narrow screens. */
+.profile-name-input { flex: 1 1 auto; min-width: 0; font-size: 18px; letter-spacing: .5px;
+  text-align: left; text-transform: none; }
 
 #rating-estimate { font-family: 'Courier New', monospace; }
 .go-rating {
@@ -704,7 +719,7 @@ html, body {
 
 /* ---- menus & dialogs fit small screens (any orientation) ---- */
 @media (max-width: 760px), (max-height: 560px) {
-  .screen { gap: 10px; padding: 16px; justify-content: center; overflow-y: auto; }
+  .screen { gap: 10px; padding: 16px; padding-bottom: max(16px, env(safe-area-inset-bottom)); }
   .screen-title { font-size: clamp(24px, 7vw, 38px); letter-spacing: 2px; margin-bottom: 4px; }
   .title-clef { font-size: clamp(40px, 9vw, 58px); }
   .game-title { font-size: clamp(36px, 11vw, 64px); letter-spacing: 5px; margin: 4px 0 6px; }
@@ -718,6 +733,10 @@ html, body {
   .seg-btn small { font-size: 10px; }
   .seg-small .seg-btn { min-width: 0; }
   .btn { min-width: 0; width: min(360px, 100%); }
+  /* stack the name field above the Create button when the row is too narrow */
+  .profile-new { flex-wrap: wrap; }
+  .profile-new .profile-name-input { flex: 1 1 100%; }
+  .profile-new .btn { width: 100%; }
   .menu-buttons.row { width: min(440px, 100%); }
   .menu-buttons.row .btn { width: auto; flex: 1; }
   .opt-row { flex-wrap: wrap; gap: 6px 14px; width: min(440px, 92vw); }

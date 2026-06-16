@@ -1,5 +1,30 @@
 MAESTRO'S GAMBIT — PROJECT STATE
-Last updated: 2026-06-16 (v2.5 — ITCH.IO RELEASE PREP. A ship/marketing pass — NO
+Last updated: 2026-06-16 (v2.6 — RESPONSIVE / MENU LAYOUT FIXES. A CSS + one-JS-guard
+pass fixing real-device menu bugs found while deploying the web build — no gameplay,
+rules, engine, or choreography change. (1) SCROLLABLE SCREENS: .screen was only
+scrollable below 760px wide, so on an iPad (834px portrait) and desktop at 100% zoom
+the Options screen overflowed with NO scroll and the Back button was unreachable —
+you could get stuck in a menu. The base .screen now always `overflow-y: auto` with
+`justify-content: safe center` (centres when it fits, top-aligns + scrolls when it
+overflows, never clipping the first row) + safe-area-aware top/bottom padding.
+(2) #app now uses 100dvh (dynamic viewport) so menus aren't hidden behind the mobile
+browser toolbar (fixes the iPhone-landscape "can't see Credits / footer" report) and
+the bottom safe-area padding fixes the iPhone "Back button cropped / scroll snaps back
+before you can tap it". (3) CONDUCTOR FIGURES gated to the TITLE screen only (one guard
+in main.js drawTitle): the two flanking conductors are part of the shared 'menu'
+background, so they were colliding with the text/buttons on Options/Profiles/Career/
+Puzzles at assorted zooms + orientations; now they appear only on the title (which is
+laid out around them). (4) Profile-name input shrunk from the 30px room-code size so the
+full "New profile name" placeholder shows instead of clipping to "New pr", and the
+name+Create row wraps on narrow phones. Verified headless at iPad-portrait 834x1112
+(Options/Career/Profiles/Puzzles): Back reachable, no figure collisions, full
+placeholder; iPad-landscape + desktop top-align-and-scroll confirmed; title still shows
+both conductors (no regression); node --check js/main.js. NOTE: narrow-width (<=760px)
+headless --window-size does NOT emulate the mobile viewport [the max-width media query
+doesn't match, so the title renders desktop-sized + overflows in such a capture] — use
+real-device testing or DevTools device emulation for the phone breakpoint; the >=760px
+captures are faithful. See V2.6 CHANGES below.)
+Prior: v2.5 — ITCH.IO RELEASE PREP. A ship/marketing pass — NO
 gameplay, rules, engine, or choreography change. (1) DEV-HOOK STRIP: index.html now
 carries window.__MG_DEV__ (true in the repo) and js/main.js debugHook() early-returns
 unless it is set, so the ?shot=/?reel=/?screen= dev URL params can be turned OFF for
@@ -101,6 +126,46 @@ Prior: v1.2 — choreography variety, castling/en-passant/promotion/stalemate/
 draw set-piece scenes, elaborate checkmate finale
 Prior: v1.1 — battle-end fix, curtain hold, camera views, quit confirm,
 mid-battle resize
+
+V2.6 CHANGES — RESPONSIVE / MENU LAYOUT FIXES (CSS + one JS guard)
+  (verified headless: iPad-portrait 834x1112 stills of Options/Career/Profiles/Puzzles
+  — Back button reachable [Career/Profiles/Puzzles fit; Options top-aligns + scrolls],
+  zero conductor-figure collisions, full "New profile name" placeholder; iPad-landscape
+  1112x834 + desktop-tall confirm overflow top-aligns and scrolls; desktop title still
+  draws both flanking conductors [no regression]; node --check js/main.js. Touched only
+  css/style.css, js/main.js [drawTitle], index.html [footer version]. ENGINE/CHESS/AI/
+  BATTLE/UI logic untouched.)
+  - ROOT CAUSE of the "stuck in a menu" bug: .screen had no overflow rule in its base;
+    overflow-y:auto only existed in the @media (max-width:760px),(max-height:560px)
+    block, so any viewport wider than 760 AND taller-content-than-screen (iPad 834px
+    portrait; desktop Chrome at 100% zoom) clipped the bottom — Back unreachable, nothing
+    scrolled. justify-content:center also pushed overflow off BOTH ends.
+  - FIX (css/style.css .screen): added `overflow-y:auto; overflow-x:hidden;
+    -webkit-overflow-scrolling:touch;`, switched to `justify-content: safe center`
+    (centres when it fits, falls back to top-aligned-and-scrollable when it overflows so
+    the first row is never clipped; unsupported engines drop the keyword and default to
+    top-aligned, which is also scrollable), and added
+    `padding-top/bottom: max(24px, env(safe-area-inset-*))`. The 760px media query's now
+    redundant `justify-content/overflow` were removed; it keeps `padding-bottom:
+    max(16px, env(safe-area-inset-bottom))`.
+  - #app: `height:100vh; height:100dvh;` — the dynamic viewport tracks the visible area
+    so menus sit above the mobile browser toolbar (iPhone-landscape Credits/footer fix),
+    with 100vh as the old-engine fallback.
+  - CONDUCTOR FIGURES (js/main.js drawTitle): the two `MG.Sprites.render('K',…)` calls
+    that flank the title are now wrapped in
+    `if (!document.getElementById('screen-title').classList.contains('hidden')) { … }`.
+    All menu screens share state==='menu' / drawTitle as their background, so the figures
+    were drawn behind Options/Profiles/Career/Puzzles too and collided with text/buttons
+    at various zooms + orientations. They now render only on the visible title screen.
+  - PROFILE NAME INPUT (css): .profile-name-input dropped from the inherited 30px
+    room-code size to 18px with min-width:0 so the full "New profile name" placeholder
+    shows (was clipping to "New pr"); the 760px block lets .profile-new wrap so the field
+    stacks above Create and both go full-width on narrow phones.
+  - KNOWN TEST CAVEAT: headless Chrome `--window-size=375,…` does NOT emulate a mobile
+    layout viewport, so the max-width:760px media query doesn't match and even the title
+    overflows in such a capture — NOT a real bug (the device is fine). Verify the phone
+    breakpoint on a real device or via DevTools device emulation; >=760px headless
+    captures are faithful and were used here.
 
 V2.5 CHANGES — ITCH.IO RELEASE PREP (ship/marketing; PASS A1 of next_steps_2.txt)
   (verified: chess 34/34; node --check js/main.js; build/make_web_build.sh produces a

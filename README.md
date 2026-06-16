@@ -122,6 +122,8 @@ The roadmap for getting it sold is `next_steps_2.txt`.
   that are shape-coded (a ring for captures, a note for quiet moves) so nothing relies
   on hue alone. Both choices persist. The wordmark and screen headings are set in the
   **Cinzel** display family (bundled locally, SIL Open Font License — see *Credits*).
+  Every menu screen scrolls when it is taller than the window — on phones, tablets, and
+  desktop at any zoom — with safe-area padding, so the Back button is always reachable.
 - Settings persist between sessions (localStorage).
 
 ## Play online

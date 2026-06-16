@@ -1204,12 +1204,19 @@
       this.titleFx.update(dt);
       this.titleFx.draw(ctx);
 
-      // two rival conductors flank the title
-      const s = Math.max(2.2, Math.min(3.4, W / 420));
-      MG.Sprites.shadow(ctx, W * 0.16, H * 0.82, s / 2.2);
-      MG.Sprites.render(ctx, 'K', 'w', 'idle', 0, this.titleT, W * 0.16, H * 0.82, s, false);
-      MG.Sprites.shadow(ctx, W * 0.84, H * 0.82, s / 2.2);
-      MG.Sprites.render(ctx, 'K', 'b', 'idle', 0, this.titleT + 1.7, W * 0.84, H * 0.82, s, true);
+      // Two rival conductors flank the title. Draw them ONLY on the title screen
+      // itself — every menu screen shares this 'menu' background, and on the denser
+      // screens (Options/Profiles/Career/Puzzles) the figures collide with the text
+      // and buttons at various zooms/orientations. The title is the one screen laid
+      // out around them, so gate on it being the visible screen.
+      const titleScreen = document.getElementById('screen-title');
+      if (titleScreen && !titleScreen.classList.contains('hidden')) {
+        const s = Math.max(2.2, Math.min(3.4, W / 420));
+        MG.Sprites.shadow(ctx, W * 0.16, H * 0.82, s / 2.2);
+        MG.Sprites.render(ctx, 'K', 'w', 'idle', 0, this.titleT, W * 0.16, H * 0.82, s, false);
+        MG.Sprites.shadow(ctx, W * 0.84, H * 0.82, s / 2.2);
+        MG.Sprites.render(ctx, 'K', 'b', 'idle', 0, this.titleT + 1.7, W * 0.84, H * 0.82, s, true);
+      }
     },
 
     /* ============== master loop ============== */
