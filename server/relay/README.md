@@ -72,7 +72,7 @@ JSON text messages, two players per room. Client → relay:
 
 - `create-room` → relay replies `room-created` with a 5-letter `code`.
 - `join-room {code}` → relay replies `room-joined`; host gets `peer-joined`.
-- `start-match {config}` → host → joiner (carries who plays Ivory).
+- `start-match {config}` → host → joiner (carries who plays Ivory + match options).
 - `game-message {channel, payload}` → forwarded to the other player.
   - channel `move`: `{from, to, promo}` (square indices 0–63).
   - channel `control`: `{action}` — `resign`, `rematch`, `rematch-request`.

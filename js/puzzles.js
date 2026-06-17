@@ -40,10 +40,10 @@
       blurb: 'One percussionist seals the seventh rank. The other delivers the downbeat.',
     },
     {
-      id: 'black-backrank', title: 'Obsidian Answers', kind: 'mate', mateIn: 1,
+      id: 'black-backrank', title: 'Ebony Answers', kind: 'mate', mateIn: 1,
       fen: '4r1k1/8/8/8/8/8/5PPP/6K1 b - - 0 1', sideToMove: 'b',
       solutionSANs: ['Re1#'],
-      blurb: 'Now Obsidian holds the baton — mate the Ivory conductor on the back rank.',
+      blurb: 'Now Ebony holds the baton — mate the Ivory conductor on the back rank.',
     },
     {
       id: 'royal-escort', title: 'The Maestro Escorts', kind: 'mate', mateIn: 2,
@@ -85,7 +85,7 @@
     has(id) { return !!BY_ID[id]; },
     indexOf(id) { return PUZZLES.findIndex((p) => p.id === id); },
     objective,
-    sideName(p) { return p.sideToMove === 'w' ? 'Ivory' : 'Obsidian'; },
+    sideName(p) { return p.sideToMove === 'w' ? 'Ivory' : 'Ebony'; },
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = MG.Puzzles;
 })();

@@ -57,7 +57,7 @@
         toggleClock: () => this.toggleClock(),
         setClockMode: (v) => this.setClockMode(v),
         setBoardTheme: (v) => this.board.setTheme(v),
-        hostMatch: (side) => this.hostMatch(side),
+        hostMatch: (side, allowUndos) => this.hostMatch(side, allowUndos),
         joinMatch: (code) => this.joinMatch(code),
         leaveLobby: () => this.leaveLobby(),
         startPuzzle: (id) => this.startPuzzle(id),
@@ -86,7 +86,7 @@
           MG.UI.online.setStatus('Room ' + code + ' is open — share it. Waiting for your opponent…', 'busy');
           MG.UI.online.connect.connected('Waiting for your opponent');
         },
-        onStartMatch: (myColor) => { MG.UI.online.connect.stop(); this.startOnlineGame(myColor); },
+        onStartMatch: (myColor, cfg) => { MG.UI.online.connect.stop(); this.startOnlineGame(myColor, cfg); },
         onMove: (p) => this.applyRemoteMove(p),
         onControl: (p) => this.onRemoteControl(p),
         onPeerLeft: (reason, message) => this.onPeerLeft(reason, message),
@@ -400,9 +400,14 @@
         // who holds the host slot matters for who drives rematches
         session.hostColor = MG.Net.role === 'host' ? session.humanColor
           : (session.humanColor === 'w' ? 'b' : 'w');
+        // match rule: when on, undos are free (no per-request prompt)
+        session.allowUndos = !!setup.allowUndos;
       }
       this.session = session;
       this.remoteQueue = [];
+      this._undoPending = false;    // online: this client has an undo awaiting consent
+      this._undoPrompting = false;  // online: an opponent undo prompt is on screen
+      this._undoQueued = 0;         // online: consented takebacks waiting for a quiet board
       // puzzles load a fixed position from FEN; everything else starts fresh
       if (setup.mode === 'puzzle' && puzzleDef) {
         this.game.loadFEN(puzzleDef.fen);
@@ -431,9 +436,10 @@
         if (session.humanColor === c) return ' (You)';
         return persona ? ` (${persona.name})` : ' (Maestro CPU)';
       };
-      MG.UI.setNames('Ivory Philharmonic' + youTag('w'), 'Obsidian Philharmonic' + youTag('b'));
-      // takebacks need both players' consent, so Undo is hidden in online play
-      document.getElementById('btn-undo').style.display = session.mode === 'online' ? 'none' : '';
+      MG.UI.setNames('Ivory Sinfonia' + youTag('w'), 'Ebony Philharmonic' + youTag('b'));
+      // Undo is available in every mode now — online takebacks go through the
+      // opponent (consent prompt, or free if the match allows it).
+      document.getElementById('btn-undo').style.display = '';
       MG.UI.setBattleBtn(session.battles);
       this.board.setView(MG.UI.settings.view || 'iso');
       MG.UI.setViewBtn(this.board.view);
@@ -451,6 +457,12 @@
 
       // announce the puzzle objective (reuses the speech-bubble toast)
       if (this.puzzle) MG.UI.showBanter(MG.Puzzles.objective(this.puzzle.def), this.puzzle.def.blurb);
+      // tell both players the match's undo rule (the host set it)
+      if (session.mode === 'online') {
+        MG.UI.showBanter('Undos', session.allowUndos
+          ? 'Free takebacks are on — either player may undo.'
+          : 'Takebacks need your opponent’s OK (tap Undo to ask).');
+      }
 
       if (this.isCpuTurn()) this.cpuMove();
     },
@@ -590,8 +602,8 @@
       this.board.checkSq = this.game.inCheck() ? this.game.kingSq(this.game.turn) : -1;
       this.board.fxl.clear();
 
-      const wn = (res.headers.White || 'Ivory Philharmonic');
-      const bn = (res.headers.Black || 'Obsidian Philharmonic');
+      const wn = (res.headers.White || 'Ivory Sinfonia');
+      const bn = (res.headers.Black || 'Ebony Philharmonic');
       MG.UI.setNames(wn, bn);
       document.getElementById('btn-undo').style.display = '';
       this.session.battles = false;
@@ -616,7 +628,7 @@
       const prof = MG.Profiles.active();
       const profName = prof.guest ? 'Guest' : prof.name;
       const nameFor = (c) => {
-        const team = c === 'w' ? 'Ivory Philharmonic' : 'Obsidian Philharmonic';
+        const team = c === 'w' ? 'Ivory Sinfonia' : 'Ebony Philharmonic';
         if (!s || s.mode === '2p') return team;
         if (s.mode === 'cpu') return s.humanColor === c
           ? `${team} (${profName})`
@@ -676,8 +688,8 @@
         loser = this.session.mode === '2p' ? this.game.turn : this.session.humanColor;
       }
       const winner = loser === 'w' ? 'b' : 'w';
-      this.endGame(winner === 'w' ? 'Ivory Wins' : 'Obsidian Wins',
-        `${loser === 'w' ? 'Ivory' : 'Obsidian'} lays down the bow and resigns.`, winner);
+      this.endGame(winner === 'w' ? 'Ivory Wins' : 'Ebony Wins',
+        `${loser === 'w' ? 'Ivory' : 'Ebony'} lays down the bow and resigns.`, winner);
     },
 
     isCpuTurn() {
@@ -693,18 +705,20 @@
     },
 
     /* ============== online play ============== */
-    hostMatch(side) { MG.Audio.resume(); MG.Net.host(side); },
+    hostMatch(side, allowUndos) { MG.Audio.resume(); MG.Net.host(side, allowUndos); },
     joinMatch(code) { MG.Audio.resume(); MG.Net.join(code); },
     leaveLobby() { MG.Net.leave(); },
 
     // both sides arrive here once the relay pairs them (host: on join; both: on start)
-    startOnlineGame(myColor) {
+    startOnlineGame(myColor, cfg) {
       this.remoteQueue = [];
       this.startGame({
         mode: 'online',
         battles: MG.UI.setup.battles,        // each player keeps their own preference
         side: myColor,
         onlineColor: myColor,
+        // the host's "allow free undos" choice governs the whole match
+        allowUndos: !!(cfg && cfg.allowUndos),
       });
     },
 
@@ -721,10 +735,19 @@
       this.drainRemote();
     },
 
-    // play the next queued opponent move when nothing else is animating
+    // play the next queued opponent move (and any consented undos) when nothing
+    // is animating. The two clients can differ in battle-scene length (each
+    // keeps their own preference), so an undo/move may land mid-animation here;
+    // gating on !busy/board keeps the engines applying it in lockstep.
     drainRemote() {
       if (!this.session || this.session.mode !== 'online') return;
-      if (this.over || this.busy || this.state === 'battle' || !this.remoteQueue.length) return;
+      if (this.over || this.busy || this.state !== 'board') return;
+      // consented takebacks apply before the next move (single ply each, in sync)
+      while (this._undoQueued > 0) {
+        this._undoQueued--;
+        if (this._undoOnePly()) { this._refreshAfterUndo(); MG.Audio.uiBack(); }
+      }
+      if (!this.remoteQueue.length) return;
       const p = this.remoteQueue.shift();
       const m = this.game.legalMoves().find((x) =>
         x.from === p.from && x.to === p.to && (!x.promo || x.promo === (p.promo || 'Q')));
@@ -738,13 +761,47 @@
         case 'resign': {
           if (this.over) return;
           const winner = this.session.humanColor; // opponent resigned, so I win
-          this.endGame(winner === 'w' ? 'Ivory Triumphs' : 'Obsidian Triumphs',
+          this.endGame(winner === 'w' ? 'Ivory Triumphs' : 'Ebony Triumphs',
             'Your opponent lays down the bow and resigns — bravo!', winner);
           break;
         }
         case 'rematch-request':
           // the joiner asked for an encore; the host restarts the match
           if (MG.Net.role === 'host') this.startHostRematch();
+          break;
+
+        // ---- undo handshake ----
+        case 'undo-do':
+          // free-undo match: the opponent took a move back; mirror it here
+          this.applyOnlineUndo();
+          break;
+        case 'undo-request': {
+          if (this.over) return;
+          // a free-undo match shouldn't send a request, but honour it gracefully
+          if (this.session.allowUndos) { this.applyOnlineUndo(); MG.Net.sendControl('undo-allow'); return; }
+          if (this._undoPrompting) return;          // one prompt at a time
+          this._undoPrompting = true;
+          MG.UI.askConfirm('Opponent has requested an undo',
+            'Take back the last move?', 'Allow', 'Decline').then((ok) => {
+            this._undoPrompting = false;
+            if (this.over || !this.session || this.session.mode !== 'online') return;
+            if (ok) { this.applyOnlineUndo(); MG.Net.sendControl('undo-allow'); }
+            else { MG.Net.sendControl('undo-decline'); }
+          });
+          break;
+        }
+        case 'undo-allow':
+          if (this._undoPending) {
+            this._undoPending = false;
+            this.applyOnlineUndo();
+            MG.UI.showBanter('Undo', 'Granted — taking the move back.');
+          }
+          break;
+        case 'undo-decline':
+          if (this._undoPending) {
+            this._undoPending = false;
+            MG.UI.showBanter('Undo', 'Your opponent declined the takeback.');
+          }
           break;
         default: break;
       }
@@ -832,6 +889,8 @@
 
     executeMove(m) {
       if (this.busy || this.over) return;
+      // any new move supersedes a not-yet-answered undo request
+      this._undoPending = false;
       this.busy = true;
       this.deselect();
       this.board.hover = -1;
@@ -845,6 +904,9 @@
 
       game.move(m);
       MG.UI.updateMoveList(game.sanHistory);
+      // deterministic battle take for online (identical on both clients); the
+      // ply count + squares are in sync since both ran the same move.
+      const seed = this.battleSeed(m);
 
       const visual = { from: m.from, to: m.to, piece: mover, second: null };
       if (m.flags === 'castleK' || m.flags === 'castleQ') {
@@ -861,8 +923,8 @@
         if (victim) {
           this.recordCapture(mover.c, victim.t);
           if (this.session.battles) {
-            if (m.flags === 'ep') this.runEnPassant(mover, victim, () => this.afterMove(m, mover));
-            else this.runBattle(mover, victim, false, () => this.afterMove(m, mover));
+            if (m.flags === 'ep') this.runEnPassant(mover, victim, () => this.afterMove(m, mover), seed);
+            else this.runBattle(mover, victim, false, () => this.afterMove(m, mover), seed);
             return;
           }
           MG.Audio.thud(0, 0.5);
@@ -871,7 +933,7 @@
           this.board.fxl.stars(x, y - 40, 8);
         } else if ((m.flags === 'castleK' || m.flags === 'castleQ') && this.session.battles) {
           // celebrate the maneuver: conductor & percussionist high-five mid-cross
-          this.runCastle(mover.c, m.flags === 'castleK' ? 'K' : 'Q', () => this.afterMove(m, mover));
+          this.runCastle(mover.c, m.flags === 'castleK' ? 'K' : 'Q', () => this.afterMove(m, mover), seed);
           return;
         }
         this.afterMove(m, mover);
@@ -933,22 +995,37 @@
       };
     },
 
-    runBattle(attacker, defender, checkmate, onDone) {
+    /* A deterministic battle index for online play. Both clients run the same
+       move through the same engine, so the ply count + squares match exactly —
+       deriving the take/finale from them makes every duel identical on both
+       ends (still varied move-to-move). Returns undefined off-line, which the
+       pickers treat as "choose at random", so local play is unchanged. */
+    battleSeed(m) {
+      if (!this.session || this.session.mode !== 'online') return undefined;
+      const ply = this.game.history.length;
+      const from = m && m.from != null ? m.from : 0;
+      const to = m && m.to != null ? m.to : 0;
+      return (ply * 131 + from * 17 + to * 7) >>> 0;
+    },
+
+    // seed: a deterministic choreography index for online play (both clients
+    // show the same take/finale); undefined off-line so the scene stays random.
+    runBattle(attacker, defender, checkmate, onDone, seed) {
       this.enterBattle();
       MG.Audio.stinger(attacker.t); // the attacker's signature phrase opens the duel
       this.battle.start(attacker, defender, {
-        checkmate, speed: MG.UI.settings.speed, onDone: this.sceneDone(onDone),
+        checkmate, altIndex: seed, speed: MG.UI.settings.speed, onDone: this.sceneDone(onDone),
       });
     },
-    runEnPassant(attacker, defender, onDone) {
+    runEnPassant(attacker, defender, onDone, seed) {
       this.enterBattle();
       this.battle.start(attacker, defender, {
-        enpassant: true, speed: MG.UI.settings.speed, onDone: this.sceneDone(onDone),
+        enpassant: true, altIndex: seed, speed: MG.UI.settings.speed, onDone: this.sceneDone(onDone),
       });
     },
-    runCastle(color, side, onDone) {
+    runCastle(color, side, onDone, seed) {
       this.enterBattle();
-      this.battle.startCastle(color, side, { speed: MG.UI.settings.speed, onDone: this.sceneDone(onDone) });
+      this.battle.startCastle(color, side, { altIndex: seed, speed: MG.UI.settings.speed, onDone: this.sceneDone(onDone) });
     },
     runStar(color, promo, onDone) {
       this.enterBattle();
@@ -991,6 +1068,7 @@
         const kingSq = game.kingSq(game.turn);
         this.board.checkPulse(kingSq, 'Checkmate!');
         MG.Audio.check();
+        const seed = this.battleSeed(m);
         const finale = () => {
           const loserKing = { t: 'K', c: game.turn };
           // the promoted piece delivers the finale in its new chair
@@ -998,12 +1076,12 @@
           if (this.session && this.session.battles) {
             setTimeout(() => {
               this.runBattle(finisher, loserKing, true, () => {
-                this.endGame(winner === 'w' ? 'Ivory Triumphs' : 'Obsidian Triumphs',
+                this.endGame(winner === 'w' ? 'Ivory Triumphs' : 'Ebony Triumphs',
                   'Checkmate. The final bow is taken — bravo, bravissimo!', winner);
-              });
+              }, seed);
             }, 700);
           } else {
-            this.endGame(winner === 'w' ? 'Ivory Triumphs' : 'Obsidian Triumphs',
+            this.endGame(winner === 'w' ? 'Ivory Triumphs' : 'Ebony Triumphs',
               'Checkmate. The final bow is taken — bravo, bravissimo!', winner);
           }
         };
@@ -1045,27 +1123,68 @@
     /* ============== undo / game end ============== */
     undo() {
       if (this.busy || this.over || !this.session) return;
-      if (this.session.mode === 'online') return; // no free takebacks online
+      // Online takebacks need the opponent — route to the consent flow.
+      if (this.session.mode === 'online') { this.requestOnlineUndo(); return; }
       const plies = this.session.mode === 'cpu' ? 2 : 1;
-      for (let i = 0; i < plies; i++) {
-        if (!this.game.history.length) break;
-        const u = this.game.history[this.game.history.length - 1];
-        if (u.taken || u.epTaken) {
-          const victim = u.taken || u.epTaken.piece;
-          const arr = victim.c === 'b' ? this.capturedByWhite : this.capturedByBlack;
-          const idx = arr.lastIndexOf(victim.t);
-          if (idx >= 0) arr.splice(idx, 1);
-        }
-        this.game.undo();
+      for (let i = 0; i < plies; i++) { if (!this._undoOnePly()) break; }
+      this._refreshAfterUndo();
+      MG.Audio.uiBack();
+      if (this.isCpuTurn()) this.cpuMove();
+    },
+
+    /* take back exactly one ply, restoring the captured-piece tray; returns
+       false when there is nothing to undo. Shared by local + online undo. */
+    _undoOnePly() {
+      if (!this.game.history.length) return false;
+      const u = this.game.history[this.game.history.length - 1];
+      if (u.taken || u.epTaken) {
+        const victim = u.taken || u.epTaken.piece;
+        const arr = victim.c === 'b' ? this.capturedByWhite : this.capturedByBlack;
+        const idx = arr.lastIndexOf(victim.t);
+        if (idx >= 0) arr.splice(idx, 1);
       }
+      this.game.undo();
+      return true;
+    },
+    _refreshAfterUndo() {
       this.deselect();
       this.board.lastMove = null;
       this.board.checkSq = this.game.inCheck() ? this.game.kingSq(this.game.turn) : -1;
       MG.UI.updateMoveList(this.game.sanHistory);
       MG.UI.updateCaptured(this.capturedByWhite, this.capturedByBlack);
       MG.UI.setTurn(this.game.turn, this.game.inCheck());
-      MG.Audio.uiBack();
-      if (this.isCpuTurn()) this.cpuMove();
+    },
+
+    /* ---- online undo (opponent consent) ----
+       The two clients run identical engines, so a takeback only stays in sync
+       if BOTH apply the same single-ply undo. The requester asks; the opponent
+       Allows/Declines (or, in an "allow undos" match, it just happens on both).
+       applyOnlineUndo() is the one authoritative step each side runs. */
+    requestOnlineUndo() {
+      if (this.over || this.busy || this.state !== 'board') return;
+      if (!this.game.history.length) {
+        MG.UI.showBanter('Undo', 'No move to take back yet.');
+        return;
+      }
+      if (this._undoPending) { MG.UI.showBanter('Undo', 'Waiting for your opponent…'); return; }
+      if (this.session.allowUndos) {
+        // free takebacks: mirror it on the opponent, then take it back here
+        MG.Net.sendControl('undo-do');
+        this.applyOnlineUndo();
+        return;
+      }
+      this._undoPending = true;
+      MG.Net.sendControl('undo-request');
+      MG.UI.showBanter('Undo', 'Requested — waiting for your opponent…');
+    },
+    // take back one ply on THIS client (the opponent runs the same step). The
+    // undo is queued and applied via drainRemote when the board is quiescent,
+    // so it can't fire mid-animation (the two clients' battle scenes may differ
+    // in length) — both ends still apply exactly one ply, staying in sync.
+    applyOnlineUndo() {
+      if (this.over) return;
+      this._undoQueued = (this._undoQueued || 0) + 1;
+      this.drainRemote();
     },
 
     endGame(title, sub, winner) {

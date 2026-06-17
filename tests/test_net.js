@@ -82,7 +82,7 @@ async function run() {
       switch (msg.type) {
         case "room-created":
           host.code = msg.code;
-          send(join.ws, { type: "join-room", code: msg.code, join_label: "Obsidian" });
+          send(join.ws, { type: "join-room", code: msg.code, join_label: "Ebony" });
           break;
         case "peer-joined":
           // host opens the match as Ivory (white), like Net.startMatchAsHost

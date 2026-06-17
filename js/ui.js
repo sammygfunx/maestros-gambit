@@ -16,7 +16,7 @@
       // reduceMotion is intentionally absent from the defaults: on first run it is
       // seeded from the OS prefers-reduced-motion setting (see init); thereafter the
       // player's explicit Options choice persists.
-    setup: { mode: 'cpu', opponent: MG.Opponents.DEFAULT_ID, side: 'w', battles: 'on' },
+    setup: { mode: 'cpu', opponent: MG.Opponents.DEFAULT_ID, side: 'w', battles: 'on', allowUndo: false },
 
     init(handlers) {
       this.handlers = handlers;
@@ -65,6 +65,9 @@
       this.buildOpponentPicker();
       this.segInit('seg-side', (v) => { this.setup.side = v; this.savePrefs(); }, this.setup.side);
       this.segInit('seg-battles', (v) => { this.setup.battles = v; this.savePrefs(); }, this.setup.battles);
+      // online match rule: 'on' lets either player take a move back with no prompt
+      this.segInit('seg-allow-undo', (v) => { this.setup.allowUndo = v === 'on'; this.savePrefs(); },
+        this.setup.allowUndo ? 'on' : 'off');
       this.segInit('seg-speed', (v) => { this.settings.speed = +v; this.savePrefs(); }, String(this.settings.speed));
       this.segInit('seg-clock', (v) => { this.settings.clockMode = v; this.savePrefs(); handlers.setClockMode(v); }, this.settings.clockMode);
       this.segInit('seg-banter', (v) => { this.settings.banter = v === 'on'; this.savePrefs(); }, this.settings.banter ? 'on' : 'off');
@@ -196,7 +199,7 @@
       nav('btn-host', () => {
         this.lobbyBusy('Creating a room…');
         this.online.connect.start('Connecting');
-        handlers.hostMatch(this.setup.side);
+        handlers.hostMatch(this.setup.side, this.setup.allowUndo);
       });
       const doJoin = () => {
         const code = $('join-code').value.toUpperCase().replace(/[^A-Z]/g, '');
@@ -730,7 +733,7 @@
       this._renderName('hud-black-name', blackName);
     },
     /* Render "Orchestra (Persona)" as two lines — the orchestra on one line and
-       the persona/profile tag smaller below — so a long name (e.g. "Obsidian
+       the persona/profile tag smaller below — so a long name (e.g. "Ebony
        Philharmonic (Piccolo Pim)") never wraps awkwardly into three lines. */
     _renderName(id, full) {
       const el = $(id);
@@ -756,7 +759,7 @@
         banner.textContent = '';
         banner.classList.remove('check');
       } else {
-        const name = turn === 'w' ? 'Ivory' : 'Obsidian';
+        const name = turn === 'w' ? 'Ivory' : 'Ebony';
         banner.textContent = inCheck ? `${name} — CHECK!` : `${name} to move`;
         banner.classList.toggle('check', !!inCheck);
       }
@@ -769,7 +772,7 @@
     setViewBtn(v) {
       // short value + an icon prefix (eye = camera view) so the label fits the
       // narrow HUD buttons in landscape; the title attr still spells it out.
-      const names = { iso: 'Ivory', rot: 'Obsidian', table: 'Table', flat: '2D' };
+      const names = { iso: 'Ivory', rot: 'Ebony', table: 'Table', flat: '2D' };
       this._iconBtn('btn-view', this._ICONS.eye, names[v] || 'Ivory');
     },
 

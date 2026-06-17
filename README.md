@@ -1,8 +1,8 @@
 # Maestro's Gambit
 *A Symphonic Battle of Wits*
 
-A Battle Chess–style game in which two rival orchestras — the **Ivory Philharmonic**
-and the **Obsidian Philharmonic** — play classical chess on a concert stage, and every
+A Battle Chess–style game in which two rival orchestras — the **Ivory Sinfonia**
+and the **Ebony Philharmonic** — play classical chess on a concert stage, and every
 capture is fought out in a fully animated on-stage duel.
 
 | Piece  | Musician      | Signature move |
@@ -86,13 +86,13 @@ The roadmap for getting it sold is `next_steps_2.txt`.
   for every capture and a checkmate finale (skippable — click or press Esc;
   or switch to "Quick Captures" entirely).
 - Four camera views (HUD "View" button, preference persists): Ivory's corner,
-  Obsidian's corner (180°), "across the table" — a straight-on, slightly
+  Ebony's corner (180°), "across the table" — a straight-on, slightly
   elevated perspective with foreshortened rows — and **Classic 2D**, a clean,
   familiar top-down diagram board with procedurally-drawn black & white Staunton
   pieces for when you just want to read the position clearly (it honours the
   colour-blind-safe Board Theme too).
 - Promotion ceremony, captured-musician trays, algebraic move list, undo, resign.
-- **Chess clocks** — per-player LED seven-segment timers (Ivory in gold, Obsidian
+- **Chess clocks** — per-player LED seven-segment timers (Ivory in gold, Ebony
   in violet) that only run for the side to move and freeze during battle scenes.
   Two modes in Options: *Count Down* (a 10-minute time control — it flashes at
   0:00, no flag-fall) or *Count Up* (tracks each player's total thinking time).
@@ -134,9 +134,13 @@ instant your opponent connects — no accounts, no installs. Both browsers run t
 same chess engine; a tiny relay server only passes moves between the two players.
 While you wait for the relay (a free host can take a moment to wake) the lobby shows
 an animated progress bar and a rotating "did you know?" orchestral fact. Battle
-scenes stay a personal preference, so each player can toggle them independently.
-Undo is disabled online (no free takebacks); Resign and Encore (rematch) work as
-expected, and a disconnect ends the match cleanly.
+scenes stay a personal preference, so each player can toggle them independently, and
+the same duel choreography is shown to **both** players (it's seeded from the move,
+so the on-stage banter matches end to end). **Undo** works online by consent: tap
+Undo to ask, and your opponent gets an *Allow / Decline* prompt; on Allow the move is
+taken back on both boards. The host can also set **Undos: Allow freely** before
+hosting, so either player may take a move back with no prompt. Resign and Encore
+(rematch) work as expected, and a disconnect ends the match cleanly.
 
 You need one small relay running for players to find each other. It is free to host:
 

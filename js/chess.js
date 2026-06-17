@@ -2,7 +2,7 @@
    Maestro's Gambit — chess.js
    Complete chess rules engine. No rendering, no dependencies.
    Squares are indices 0..63; index = row*8 + col.
-   Row 0 is rank 8 (Obsidian/black home row); white moves toward row 0.
+   Row 0 is rank 8 (Ebony/black home row); white moves toward row 0.
    ============================================================ */
 (function () {
   const MG = (globalThis.MG = globalThis.MG || {});

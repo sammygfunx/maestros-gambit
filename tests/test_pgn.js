@@ -38,8 +38,8 @@ console.log('— round-trip: a decisive game (Scholar\'s Mate) —');
   ok(g.status() === 'checkmate', 'scripted game ends in checkmate');
 
   const pgn = PGN.export(g, { round: '1' });
-  ok(/\[White "Ivory Philharmonic"\]/.test(pgn), 'header carries the White tag');
-  ok(/\[Black "Obsidian Philharmonic"\]/.test(pgn), 'header carries the Black tag');
+  ok(/\[White "Ivory Sinfonia"\]/.test(pgn), 'header carries the White tag');
+  ok(/\[Black "Ebony Philharmonic"\]/.test(pgn), 'header carries the Black tag');
   ok(/\[Event "Maestro's Gambit"\]/.test(pgn), 'header carries the Event tag');
   ok(/\[Result "1-0"\]/.test(pgn), 'checkmate by White is scored 1-0');
   ok(/\b1\. e4 e5\b/.test(pgn), 'numbered movetext begins 1. e4 e5');

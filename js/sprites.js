@@ -24,7 +24,7 @@
       pants: '#b4a378', shoe: '#6e5a3a', cuff: '#fff6df', glowA: 'rgba(255,224,150,',
     },
     b: {
-      name: 'Obsidian', coat: '#462b60', coatD: '#331d49', trim: '#c3c8e6',
+      name: 'Ebony', coat: '#462b60', coatD: '#331d49', trim: '#c3c8e6',
       pants: '#2c1c3e', shoe: '#150d20', cuff: '#6b4a8d', glowA: 'rgba(190,170,255,',
     },
   };

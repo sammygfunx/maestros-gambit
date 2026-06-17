@@ -407,6 +407,10 @@ html, body {
 }
 .oc-title { color: var(--gold-bright); font-size: 20px; letter-spacing: 1px; }
 .oc-sub { color: #b9a888; font-size: 14px; line-height: 1.5; margin: 0; min-height: 40px; }
+.oc-undo-row { display: flex; align-items: center; gap: 10px; }
+.oc-undo-label { color: #d9c79f; font-size: 14px; letter-spacing: 1px; text-transform: uppercase; }
+.seg-undo .seg-btn { min-width: 0; font-size: 13px; padding: 6px 12px; }
+.oc-hint { color: #8a7a64; font-size: 12px; font-style: italic; margin: -4px 0 0; }
 .online-or { align-self: center; color: var(--gold-dim); font-style: italic; font-size: 18px; }
 .code-input, .relay-input {
   width: 100%;
@@ -634,11 +638,11 @@ html, body {
   background: rgba(8,4,12,.9);
   border: 1px solid #3a2342; border-radius: 8px;
   padding: 5px 10px;
-  /* per-team LED colour, set on .ivory / .obsidian below */
+  /* per-team LED colour, set on .ivory / .ebony below */
   --led: var(--gold-bright);
 }
-.mg-clock.ivory    { --led: #ffe096; }   /* Ivory accent (warm gold sheen) */
-.mg-clock.obsidian { --led: #beaaff; }   /* Obsidian accent (violet sheen) */
+.mg-clock.ivory { --led: #ffe096; }   /* Ivory accent (warm gold sheen) */
+.mg-clock.ebony { --led: #beaaff; }   /* Ebony accent (violet sheen) */
 .mg-clock.active { border-color: var(--led); box-shadow: 0 0 12px -2px var(--led); }
 .clk-name {
   font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
@@ -753,7 +757,7 @@ html, body {
   .profile-new .profile-name-input { flex: 1 1 100%; }
   .profile-new .btn { width: 100%; }
   .menu-buttons.row { width: min(440px, 100%); }
-  /* smaller team-name type so "Obsidian Philharmonic" + persona fit on phones */
+  /* smaller team-name type so "Ebony Philharmonic" + persona fit on phones */
   .hud-orch { font-size: 13px; letter-spacing: 1.5px; }
   .hud-persona { font-size: 11px; letter-spacing: .5px; }
   /* keep the long "Encore (Rematch)" label inside its button next to "Main Menu" */
@@ -832,7 +836,7 @@ html, body {
 /* ---- LANDSCAPE phone: keep a thin side panel on the right ---- */
 @media (max-height: 560px) and (orientation: landscape) {
   #hud-top { padding: 4px 12px; }
-  /* room for "Obsidian Philharmonic" on one line + the persona below it */
+  /* room for "Ebony Philharmonic" on one line + the persona below it */
   .hud-name { width: 200px; }
   /* lift the "to move" line off the name row (where the header gradient edge cut
      through it) and float it on the purple background just above the board, centred

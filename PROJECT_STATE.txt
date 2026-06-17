@@ -1,5 +1,35 @@
 MAESTRO'S GAMBIT — PROJECT STATE
-Last updated: 2026-06-16 (v2.8 — LANDSCAPE HUD POLISH + ONLINE VALIDATED. CSS + small
+Last updated: 2026-06-17 (v2.9 — ONLINE UNDO (CONSENT) + DETERMINISTIC BATTLE LINES +
+TEAM RENAME. Three changes validated by Sam + brother over real online play; the
+chess ENGINE/AI/choreography data are UNTOUCHED. (1) TEAM RENAME everywhere: "Obsidian
+Philharmonic" → "Ebony Philharmonic" and "Ivory Philharmonic" → "Ivory Sinfonia"
+(standalone "Obsidian" → "Ebony" too) — HUD names, turn banner, clocks, resign/triumph
+text, castle/promotion battle lines, PGN White/Black headers + import defaults, online
+join label, puzzle title/blurb/sideName, the .obsidian clock CSS class (→.ebony), README,
+itch page, and code comments. Grep-clean across js/html/css/docs/tests (only this file's
+archival changelog + history/ keep the old names, by design — they're records of past
+states). (2) ONLINE UNDO BY CONSENT: the Undo button is re-enabled online (was hidden);
+tapping it sends an undo-request, the opponent gets an Allow/Decline modal, and on Allow
+BOTH clients take back exactly one ply via a single authoritative applyOnlineUndo()
+queued through drainRemote (so a takeback can't fire mid-animation even though the two
+clients can run different-length battle scenes — they stay in lockstep). A host "Undos:
+By request / Allow freely" toggle on the Online lobby (Host card) is carried in the
+start-match config (host-authoritative); 'Allow freely' skips the prompt (both mirror
+via undo-do). (3) DETERMINISTIC BATTLE LINES: the choreography take (altIndex) + the
+grand-finale curtain variant are now seeded from the move (App.battleSeed = ply + from/to;
+fed to battle start/startCastle + BattleScene.finaleVariant) for ONLINE play, so both
+ends show the same duel + banter; off-line it stays random (battleSeed returns undefined,
+which the pickers already treat as "random"). Verified: chess 34/34, rating 20/20, ai
+19/19, pgn 23/23 (header asserts updated to the new names), net relay OK; node --check on
+every touched file; headless stills — board HUD shows "Ebony Philharmonic"/"Ivory
+Sinfonia", the Online lobby shows the new Undos toggle, a Q>K battle still renders, and
+?shot=soak returns to a clean board (no error overlay) so all 88 takes still run; build
+ships with __MG_DEV__=false and no stray old names. Online sync paths reasoned through
+for live retest. Touched: js/main.js, js/net.js, js/battle.js, js/ui.js, index.html,
+css/style.css (+ rename-only: js/sprites.js, js/pgn.js, js/puzzles.js, js/chess.js &
+js/board.js comments, tests/test_pgn.js, tests/test_net.js, README.md, promo/itch_page.md,
+server/relay/README.md). See V2.9 CHANGES below.)
+Prior: v2.8 — LANDSCAPE HUD POLISH + ONLINE VALIDATED. CSS + small
 JS, from iPhone-13-mini landscape playtesting — no gameplay/rules/engine change.
 (1) The "X to move" banner, which in landscape sat at the very top where the header
 gradient edge struck through it, now floats on the purple background just above the
@@ -162,6 +192,94 @@ Prior: v1.2 — choreography variety, castling/en-passant/promotion/stalemate/
 draw set-piece scenes, elaborate checkmate finale
 Prior: v1.1 — battle-end fix, curtain hold, camera views, quit confirm,
 mid-battle resize
+
+V2.9 CHANGES — ONLINE UNDO (CONSENT) + DETERMINISTIC BATTLE LINES + TEAM RENAME
+  (verified: chess 34/34; rating 20/20; ai 19/19; pgn 23/23 [the White/Black header
+  asserts were updated to the new team names]; net relay test OK [two engines mate in
+  sync]; node --check on js/main.js, js/net.js, js/battle.js, js/ui.js; headless stills
+  at 1280x800 — the board HUD reads "Ebony Philharmonic"/"Ivory Sinfonia" with the new
+  "EBONY" clock label, the Online lobby Host card shows the "Undos: By request / Allow
+  freely" toggle + hint, a Q>K checkmate battle still renders with its dialogue, and
+  ?shot=soak returns to a clean board with NO error overlay [so all 88 choreography
+  takes + set-pieces still run after the battle.js change]; the shipped build carries
+  __MG_DEV__=false and contains no stray "Obsidian"/"Ivory Philharmonic". The chess
+  ENGINE, AI, opening book, rating math, and the choreography DATA are byte-for-byte
+  unchanged — only render/control/UI glue + string literals moved.)
+
+  (1) TEAM RENAME (string-only across many files). "Ivory Philharmonic" → "Ivory
+      Sinfonia"; "Obsidian Philharmonic" → "Ebony Philharmonic"; standalone short name
+      "Obsidian" → "Ebony" (white short name stays "Ivory"). Surfaces hit:
+        - js/main.js: HUD setNames, PGN-replay default names, buildPgnMeta team string,
+          resign title/sub ("Ebony Wins" / "Ebony lays down the bow"), all three
+          "Ebony Triumphs" game-over titles.
+        - js/ui.js: setTurn banner ("Ebony to move/CHECK"), the View-button label map
+          (rot: 'Ebony'), the _renderName comment.
+        - js/battle.js: STAR_LINE.b ("For Ebony — my moment!"), the castle banner.
+        - js/sprites.js: TEAM.b.name 'Ebony' (palette-only field, not displayed, but
+          kept consistent). js/pgn.js: export default Black/White tags. js/puzzles.js:
+          the 'black-backrank' title/blurb + sideName('Ebony'). js/chess.js & js/board.js:
+          orientation comments. index.html: side-picker button, HUD black name, the
+          clock label + its CSS class, the game-over default sub. css/style.css: the
+          .mg-clock.obsidian rule → .mg-clock.ebony (the only JS refs the clock by id
+          #clock-b, so the class rename is safe) + two phone-breakpoint comments.
+        - Docs: README intro/camera/clock lines, promo/itch_page.md hero line,
+          server/relay/README.md protocol note. Tests: tests/test_pgn.js header asserts,
+          tests/test_net.js join label.
+      NOT renamed (deliberately): the historical changelog entries in THIS file and in
+      history/ — those are records of what shipped at the time, so they keep the old
+      names. A grep for "Obsidian"/"Ivory Philharmonic" over js/html/css/docs/tests is
+      clean; the only hits are those two archival files.
+
+  (2) ONLINE UNDO BY OPPONENT CONSENT (js/main.js + js/net.js + js/ui.js + index.html +
+      css). Local 2P/CPU undo is unchanged; online undo was previously hard-disabled.
+      - SYNC INVARIANT: both clients run the same engine, so a takeback only stays in
+        sync if BOTH apply the SAME single-ply undo. The local undo loop was refactored
+        into _undoOnePly() (one ply + capture-tray fix) + _refreshAfterUndo(); the
+        online path reuses _undoOnePly so it matches local exactly. applyOnlineUndo() is
+        the one authoritative step each side runs.
+      - QUEUED THROUGH drainRemote: the two clients can run DIFFERENT-LENGTH battle
+        scenes (each keeps their own Battle Scenes pref), so an undo control message can
+        arrive while THIS client is still mid-animation. applyOnlineUndo() therefore
+        increments App._undoQueued and calls drainRemote(); drainRemote (gated on
+        !over/!busy/state==='board') applies any queued takebacks (one ply each) BEFORE
+        the next queued remote move. So a takeback never fires mid-scene and both ends
+        converge on the same ply count.
+      - CONSENT HANDSHAKE (control channel, all via MG.Net.sendControl): the requester
+        calls undo() → requestOnlineUndo(), which (if the match is NOT free-undo) sends
+        'undo-request', sets _undoPending, and toasts "Requested — waiting…". The
+        opponent's onRemoteControl shows a MODAL askConfirm ("Opponent has requested an
+        undo", Allow/Decline) — guarded by _undoPrompting so only one shows; the modal
+        backdrop (z-index 30, inset 0) covers the board so the prompted player can't move
+        mid-prompt (no desync). Allow → applyOnlineUndo() here + sendControl('undo-allow');
+        Decline → 'undo-decline'. Back at the requester, 'undo-allow' (only if still
+        _undoPending) → applyOnlineUndo() + toast; 'undo-decline' → toast. A new local
+        move clears _undoPending (executeMove) so a stale request can't apply later.
+      - "ALLOW UNDOS" MATCH TOGGLE: a segmented "Undos: By request / Allow freely"
+        control in the Online lobby Host card (index.html #seg-allow-undo, ui.js segInit
+        → setup.allowUndo, persisted in mg_prefs). The HOST's choice is authoritative:
+        Net.host(side, allowUndos) stores it, startMatchAsHost puts allowUndos in the
+        start-match config, and the joiner reads it from msg.config — onStartMatch now
+        passes {allowUndos} → startOnlineGame → session.allowUndos. When free, undo() just
+        sends 'undo-do' and applies locally; the opponent mirrors via 'undo-do' (no
+        prompt). A one-shot toast at game start tells BOTH players the rule.
+      - The Undo button is no longer display:none online; a brief banter toast is the
+        in-game feedback channel (no new HUD chrome).
+
+  (3) DETERMINISTIC ONLINE BATTLE LINES (js/main.js + js/battle.js). The choreography
+      "take" (which set of say-lines) and the grand-finale curtain were chosen with
+      Math.random(), so two online clients saw different duels for the same capture.
+      - App.battleSeed(m): returns undefined off-line (→ pickers stay random, local play
+        unchanged), and online returns a deterministic integer from the SHARED state
+        (game.history.length after the move, + from*17 + to*7). Both clients ran the same
+        move through the same engine, so the seed matches exactly.
+      - The seed is threaded as opts.altIndex into runBattle / runEnPassant / runCastle
+        and into the checkmate-finale runBattle; battle.start/startCastle already honour
+        altIndex via pickChoreo/pickFrom (idx % len). For the grand finale, _setupScene
+        now derives this.finaleVariant from opts.altIndex when present (else random) and
+        grandFinale() reads it instead of rolling its own Math.random()*3.
+      - Promotion ("A Star Is Born") is already deterministic (starSteps has no random
+        take), so it needs no seed. Minor cosmetic jitter (note-particle x, footstep
+        sample) is left random — it doesn't affect which line/curtain shows.
 
 V2.8 CHANGES — LANDSCAPE HUD POLISH + ONLINE VALIDATED (CSS + small JS)
   (verified headless: landscape 812x375 board — the "to move" line floats above the

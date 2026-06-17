@@ -6,7 +6,7 @@
 
    Four camera views, implemented as swappable projections:
      'iso'   — isometric, Ivory's corner (the classic)
-     'rot'   — the same stage seen from Obsidian's corner (180°)
+     'rot'   — the same stage seen from Ebony's corner (180°)
      'table' — across the table: straight-on, slightly elevated,
                rows foreshortened, back rows smaller
      'flat'  — a clean, familiar top-down 2D diagram board with

@@ -19,9 +19,12 @@
    Handlers (all optional):
      onStatus(state, message)     'connecting'|'waiting'|'error'|'left'|…
      onRoomCreated(code)          host got its room code
-     onStartMatch(myColor)        both sides: begin playing as 'w'|'b'
+     onStartMatch(myColor, cfg)   both sides: begin playing as 'w'|'b'
+                                  (cfg = {allowUndos} match options)
      onMove(payload)              opponent moved {from,to,promo}
      onControl(payload)           opponent control {action,…}
+                                  (resign, rematch-request, undo-request/
+                                   -allow/-decline/-do)
      onPeerLeft(reason, message)  opponent disconnected / room gone
      onError(code, message)       relay error
    ============================================================ */
@@ -43,6 +46,7 @@
     paired: false,       // opponent present in the room
     matchActive: false,  // a match has been started (start-match seen)
     hostSide: 'w',       // host's requested side until the coin toss resolves
+    allowUndos: false,   // host's "allow free undos" choice (sent in start-match)
     _intentionalClose: false,
 
     configure(handlers) { this.handlers = handlers || {}; return this; },
@@ -95,9 +99,10 @@
     },
 
     /* ---- room lifecycle ---- */
-    host(side) {
+    host(side, allowUndos) {
       this.role = 'host';
       this.hostSide = side === 'b' || side === 'w' ? side : 'r';
+      this.allowUndos = !!allowUndos;
       this._connect()
         .then(() => { this._send({ type: 'create-room', host_label: 'Ivory Maestro' }); })
         .catch((e) => this._fail(e.message));
@@ -109,7 +114,7 @@
       this._connect()
         .then(() => {
           this._status('joining', 'Joining the room…');
-          this._send({ type: 'join-room', code: clean, join_label: 'Obsidian Maestro' });
+          this._send({ type: 'join-room', code: clean, join_label: 'Ebony Maestro' });
         })
         .catch((e) => this._fail(e.message));
     },
@@ -120,9 +125,9 @@
       if (this.role !== 'host') return;
       const col = hostColor === 'b' ? 'b' : hostColor === 'w' ? 'w'
         : (Math.random() < 0.5 ? 'w' : 'b');
-      this._send({ type: 'start-match', config: { hostColor: col } });
+      this._send({ type: 'start-match', config: { hostColor: col, allowUndos: this.allowUndos } });
       this.matchActive = true;
-      this.handlers.onStartMatch && this.handlers.onStartMatch(col);
+      this.handlers.onStartMatch && this.handlers.onStartMatch(col, { allowUndos: this.allowUndos });
     },
 
     requestRematch() { this.sendControl('rematch-request'); },
@@ -169,9 +174,11 @@
         case 'start-match': {
           this.paired = true;
           this.matchActive = true;
-          const hostColor = (msg.config && msg.config.hostColor) === 'b' ? 'b' : 'w';
+          const cfg = msg.config || {};
+          const hostColor = cfg.hostColor === 'b' ? 'b' : 'w';
           const myColor = this.role === 'host' ? hostColor : other(hostColor);
-          this.handlers.onStartMatch && this.handlers.onStartMatch(myColor);
+          this.allowUndos = !!cfg.allowUndos;
+          this.handlers.onStartMatch && this.handlers.onStartMatch(myColor, { allowUndos: this.allowUndos });
           break;
         }
         case 'game-message':

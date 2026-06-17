@@ -28,7 +28,7 @@ on-stage duel between two rival orchestras.
 
 **Two orchestras. One board. Every capture, a performance.**
 
-The Ivory Philharmonic and the Obsidian Philharmonic settle their rivalry the only
+The Ivory Sinfonia and the Ebony Philharmonic settle their rivalry the only
 way maestros can — over the chessboard, on a concert stage. But this is no quiet
 match: the instant one musician takes another, the camera dives to the stage and the
 two fight it out in a fully animated duel. A pianist drops a grand piano on a

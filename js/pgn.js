@@ -66,8 +66,8 @@
       Site: meta.site || 'Maestro’s Gambit',
       Date: meta.date || todayPGN(),
       Round: meta.round || '-',
-      White: meta.white || 'Ivory Philharmonic',
-      Black: meta.black || 'Obsidian Philharmonic',
+      White: meta.white || 'Ivory Sinfonia',
+      Black: meta.black || 'Ebony Philharmonic',
       Result: result,
     };
     let out = '';

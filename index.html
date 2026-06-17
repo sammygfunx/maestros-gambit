@@ -35,7 +35,7 @@
         <button class="btn" id="btn-options">Options</button>
         <button class="btn" id="btn-credits">Credits</button>
       </div>
-      <p class="footer-note">Click anywhere to enable sound &nbsp;·&nbsp; v2.8</p>
+      <p class="footer-note">Click anywhere to enable sound &nbsp;·&nbsp; v2.9</p>
     </div>
 
     <!-- ====== GAME SETUP SCREEN ====== -->
@@ -68,7 +68,7 @@
         <div class="setup-label">Your Ensemble</div>
         <div class="seg" id="seg-side">
           <button class="seg-btn sel" data-v="w">Ivory <small>moves first</small></button>
-          <button class="seg-btn" data-v="b">Obsidian</button>
+          <button class="seg-btn" data-v="b">Ebony</button>
           <button class="seg-btn" data-v="r">Coin Toss</button>
         </div>
       </div>
@@ -321,6 +321,14 @@
         <div class="online-card">
           <div class="oc-title">Host a Match</div>
           <p class="oc-sub">Create a room and send the code to your opponent.</p>
+          <div class="oc-undo-row">
+            <span class="oc-undo-label">Undos</span>
+            <div class="seg seg-undo" id="seg-allow-undo">
+              <button class="seg-btn sel" data-v="off" title="Each undo needs the opponent's OK">By request</button>
+              <button class="seg-btn" data-v="on" title="Either player may take a move back, no prompt">Allow freely</button>
+            </div>
+          </div>
+          <p class="oc-hint">The host sets the undo rule for the match.</p>
           <button class="btn btn-big" id="btn-host">Host a Match</button>
           <div class="room-code hidden" id="room-code-box">
             <div class="rc-label">Room Code</div>
@@ -360,13 +368,13 @@
     <!-- ====== IN-GAME HUD ====== -->
     <div id="hud" class="hidden">
       <div id="hud-top">
-        <div class="hud-name" id="hud-black-name">Obsidian</div>
+        <div class="hud-name" id="hud-black-name">Ebony</div>
         <div id="hud-turn-banner">Ivory to move</div>
         <div class="hud-name" id="hud-white-name">Ivory</div>
       </div>
       <div id="hud-profile" class="hidden"><span class="pc-icon">♟</span> <span id="hud-profile-text"></span></div>
       <div id="hud-side">
-        <div class="mg-clock obsidian" id="clock-b"><span class="clk-name">Obsidian</span><span class="seg7-display" id="clock-b-seg"></span></div>
+        <div class="mg-clock ebony" id="clock-b"><span class="clk-name">Ebony</span><span class="seg7-display" id="clock-b-seg"></span></div>
         <div class="cap-row" id="cap-black"></div>
         <div id="move-list"></div>
         <div class="cap-row" id="cap-white"></div>
@@ -419,7 +427,7 @@
     <div id="screen-gameover" class="modal hidden">
       <div class="modal-card">
         <h3 id="go-title">Checkmate</h3>
-        <p id="go-sub">The Ivory Philharmonic takes the final bow.</p>
+        <p id="go-sub">The Ivory Sinfonia takes the final bow.</p>
         <p id="go-banter" class="go-banter hidden"></p>
         <div id="go-progress" class="go-progress hidden"></div>
         <p id="go-rating" class="go-rating hidden"></p>

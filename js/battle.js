@@ -1087,7 +1087,7 @@
   ];
 
   /* ---- A Star Is Born: a violinist promoted into a new chair ---- */
-  const STAR_LINE = { w: 'For Ivory — my moment!', b: 'For Obsidian — my moment!' };
+  const STAR_LINE = { w: 'For Ivory — my moment!', b: 'For Ebony — my moment!' };
   const STAR_FINISH = {
     Q: [
       st('A', 'special', 1.0, { say: 'A virtuoso takes the stage.', fx: [fx(0.1, (S) => { S.keyWave('A'); S.au.pianoChord([262, 330, 392, 523], 0, 0.5, 0.8, 0.04); }), fx(0.5, (S) => S.fxl.notes(S.A.x, S.gy - 100, 8, S.noteCol('A')))] }),
@@ -1196,6 +1196,12 @@
       this.fading = null;
       this.fadeIn = 0.35;
       this.suppressBanner = false;   // the trailer reel hides the per-duel banner
+      // The grand-finale curtain-call has three takes. Online play passes a
+      // deterministic altIndex (seeded from the move) so BOTH clients pick the
+      // same take; otherwise it stays random for local variety.
+      this.finaleVariant = opts.altIndex != null
+        ? ((((opts.altIndex | 0) % 3) + 3) % 3)
+        : ((Math.random() * 3) | 0);
       this.fxl.clear();
     }
 
@@ -1232,7 +1238,7 @@
       const mid = this.W / 2;
       this.A = this.mkActor({ t: 'K', c: color }, mid - 60 * this.u, 1);
       this.D = this.mkActor({ t: 'R', c: color }, mid + 60 * this.u, -1);
-      this.banner = (color === 'w' ? 'Ivory' : 'Obsidian') + ' Castles — A Grand Maneuver';
+      this.banner = (color === 'w' ? 'Ivory' : 'Ebony') + ' Castles — A Grand Maneuver';
       this.compile(pickFrom(CASTLE, opts.altIndex));
       this.active = true;
       this.au.castle();
@@ -1417,7 +1423,7 @@
 
     /* the elaborate checkmate send-off — one of three takes at random */
     grandFinale() {
-      const v = (Math.random() * 3) | 0;
+      const v = this.finaleVariant;
       this.later(0.5, () => {
         this.fxl.confetti(this.A.x, this.gy - 200, 30);
         this.au.applause(0.3, 0.5, 4.4);
