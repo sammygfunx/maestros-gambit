@@ -9,8 +9,9 @@
   const canvas = document.getElementById('game-canvas');
   const ctx = canvas.getContext('2d');
 
-  // Default time control for the chess clocks (countdown mode): 10 minutes per
-  // player. Change this one constant to adjust the default game length.
+  // Default time control for the chess clocks: 10 minutes, no increment. The
+  // base + increment are configurable in Options (a preset such as 3+2, or a
+  // custom value); this is just the fallback when nothing is stored.
   const CLOCK_SECONDS = 10 * 60;
 
   const App = {
@@ -54,8 +55,10 @@
           MG.UI.setBattleBtn(this.session.battles);
         },
         cycleView: () => this.cycleView(),
+        setOrient: (o) => this.setOrient(o),
         toggleClock: () => this.toggleClock(),
         setClockMode: (v) => this.setClockMode(v),
+        setTimeControl: (base, inc, id) => this.setTimeControl(base, inc, id),
         setBoardTheme: (v) => this.board.setTheme(v),
         hostMatch: (side, allowUndos) => this.hostMatch(side, allowUndos),
         joinMatch: (code) => this.joinMatch(code),
@@ -174,6 +177,10 @@
         this.startGame({ mode: '2p', diff: 1, battles: 'off', side: 'w' });
         const v = q.get('view');
         if (v) { this.board.setView(v); MG.UI.setViewBtn(this.board.view); }
+        // &orient=N (0..7) spins the table/flat board to a fixed yaw for stills
+        const ori = q.get('orient');
+        if (ori != null) { this.setOrient(+ori); MG.UI.showOrientDial(this.board.view === 'table'); }
+        if (q.get('dial')) MG.UI.toggleOrientDial();   // open the angle dial for a still
         const th = q.get('theme');
         if (th) this.board.setTheme(th);
         // &select=<sq> highlights a piece + its legal targets (to show move markers)
@@ -229,6 +236,17 @@
       } else if (shot === 'promo') {
         this.startGame({ mode: '2p', diff: 1, battles: 'off', side: 'w' });
         MG.UI.askPromotion(q.get('c') || 'w');
+      } else if (shot === 'flagfall') {
+        // verify a timeout ends the game: a tiny flag-fall clock (default 2s) on
+        // a fresh 2P board — the side to move runs out and loses on time. The
+        // clock is ticked SYNCHRONOUSLY here (not left to real-time frames) so a
+        // headless capture deterministically lands on the win-on-time card.
+        MG.Audio.enabled = false;
+        MG.UI.settings.clockMode = 'flag';
+        MG.UI.settings.tcBase = parseFloat(q.get('sec')) || 2;
+        MG.UI.settings.tcInc = parseFloat(q.get('inc')) || 0;
+        this.startGame({ mode: '2p', diff: 1, battles: 'off', side: 'w' });
+        for (let i = 0; i < 2000 && !this.over; i++) this.updateClock(0.1);
       } else if (shot === 'soak') {
         // run EVERY choreography variant AND every special scene to completion
         this.startGame({ mode: '2p', diff: 1, battles: 'on', side: 'w' });
@@ -305,18 +323,42 @@
       MG.UI.savePrefs();
       this.board.setView(next);
       MG.UI.setViewBtn(next);
+      // the orient dial only makes sense for the table/flat views
+      MG.UI.showOrientDial(this.board.orientable() && this.board.view === 'table');
+    },
+
+    // jump the table/flat board to one of the 8 fixed yaw angles (orient dial)
+    setOrient(o) {
+      MG.UI.settings.orient = ((Math.round(o) % 8) + 8) % 8;
+      MG.UI.savePrefs();
+      this.board.setOrient(MG.UI.settings.orient);
+      MG.UI.setOrientDial(MG.UI.settings.orient);
     },
 
     /* ============== chess clocks ============== */
-    // Standard chess-clock behaviour: only the side to move counts. In
-    // 'countdown' mode each side starts at CLOCK_SECONDS and ticks toward 0
-    // (freezes/flashes at 0:00 — no flag-fall at this scope). In 'countup'
-    // mode each side starts at 0 and accumulates its total thinking time.
-    // Online clocks run independently on each client (cosmetic/honour system).
+    // Standard chess-clock behaviour: only the side to move counts. Three modes:
+    //   'countup'   — start at 0, accumulate each player's total thinking time.
+    //   'countdown' — start at the time control, tick toward 0, freeze/flash at
+    //                 0:00 (a casual clock — running out does NOT lose).
+    //   'flag'      — sudden death: like countdown, but a fallen flag (0:00 on
+    //                 your move) LOSES the game. Honours a Fischer increment.
+    // Countdown/flag read the configured time control (base seconds + increment
+    // per move); count-up ignores it. Online clocks run independently on each
+    // client (cosmetic/honour system), so flag-fall is local-modes-only.
+    timeControl() {
+      const base = Math.max(1, Math.round(+MG.UI.settings.tcBase || CLOCK_SECONDS));
+      const inc = Math.max(0, Math.round(+MG.UI.settings.tcInc || 0));
+      return { base, inc };
+    },
+    clockModeNow() {
+      const m = MG.UI.settings.clockMode;
+      return (m === 'countup' || m === 'flag') ? m : 'countdown';
+    },
     resetClock() {
-      const mode = MG.UI.settings.clockMode === 'countup' ? 'countup' : 'countdown';
-      const base = mode === 'countdown' ? CLOCK_SECONDS : 0;
-      this.clock = { w: base, b: base, mode };
+      const mode = this.clockModeNow();
+      const tc = this.timeControl();
+      const base = mode === 'countup' ? 0 : tc.base;
+      this.clock = { w: base, b: base, mode, inc: mode === 'countup' ? 0 : tc.inc };
       this._clockStr = { w: '', b: '' };
       this._clockActive = undefined;
       this.applyClockVisibility();
@@ -335,13 +377,16 @@
       MG.UI.setClockBtn(MG.UI.settings.clockShown);
     },
     setClockMode(v) {
-      MG.UI.settings.clockMode = v === 'countup' ? 'countup' : 'countdown';
-      if (!this.clock) return;
-      this.clock.mode = MG.UI.settings.clockMode;
-      const base = this.clock.mode === 'countdown' ? CLOCK_SECONDS : 0;
-      this.clock.w = base; this.clock.b = base;
-      this.renderClock('w', true);
-      this.renderClock('b', true);
+      MG.UI.settings.clockMode = (v === 'countup' || v === 'flag') ? v : 'countdown';
+      this.resetClock();
+    },
+    // Options picked a new time control (preset or custom): store + restart clocks.
+    setTimeControl(base, inc, id) {
+      MG.UI.settings.tcBase = Math.max(1, Math.round(+base || CLOCK_SECONDS));
+      MG.UI.settings.tcInc = Math.max(0, Math.round(+inc || 0));
+      if (id) MG.UI.settings.tcId = id;
+      MG.UI.savePrefs();
+      this.resetClock();
     },
     fmtClock(secs) {
       secs = Math.max(0, Math.floor(secs));
@@ -353,7 +398,8 @@
       const str = this.fmtClock(this.clock[color]);
       if (!force && this._clockStr[color] === str) return;
       this._clockStr[color] = str;
-      const flag = this.clock.mode === 'countdown' && this.clock[color] <= 0;
+      // both limited modes flash at 0:00 (flag = the flag is down)
+      const flag = this.clock.mode !== 'countup' && this.clock[color] <= 0;
       MG.UI.setClock(color, str, flag);
     },
     // advance the active side's clock; frozen during animations/battle/game-over
@@ -370,11 +416,26 @@
       }
       if (!ticking) return;
       const c = this.clock, turn = this.game.turn;
-      if (c.mode === 'countdown') {
-        if (c[turn] > 0) { c[turn] = Math.max(0, c[turn] - dt); this.renderClock(turn); }
-      } else {
+      if (c.mode === 'countup') {
         c[turn] += dt; this.renderClock(turn);
+      } else if (c[turn] > 0) {
+        c[turn] = Math.max(0, c[turn] - dt);
+        this.renderClock(turn);
+        if (c[turn] <= 0 && c.mode === 'flag') this.flagFall(turn);
       }
+    },
+
+    // sudden-death flag-fall: the side on move ran out of time and loses. Online
+    // clocks are an honour-system cosmetic (each client ticks independently), so
+    // an auto-loss there would desync — skip it for online matches.
+    flagFall(loser) {
+      if (this.over || !this.session) return;
+      if (this.session.mode === 'online') return;
+      const winner = loser === 'w' ? 'b' : 'w';
+      const loserName = loser === 'w' ? 'Ivory' : 'Ebony';
+      const winnerName = winner === 'w' ? 'Ivory Sinfonia' : 'Ebony Philharmonic';
+      this.endGame(`${winnerName} Wins on Time`,
+        `${loserName}’s flag falls — the clock runs out. A win on time.`, winner);
     },
 
     /* ============== session lifecycle ============== */
@@ -443,6 +504,10 @@
       MG.UI.setBattleBtn(session.battles);
       this.board.setView(MG.UI.settings.view || 'iso');
       MG.UI.setViewBtn(this.board.view);
+      // Face the board to the human's side by default (table/flat honour this):
+      // playing Black starts from Black's perspective. The orient dial overrides.
+      this.setOrient(session.humanColor === 'b' ? 4 : 0);
+      MG.UI.showOrientDial(this.board.view === 'table');
       this.resetClock();
       MG.UI.setClockBtn(MG.UI.settings.clockShown);
       MG.UI.updateMoveList([]);
@@ -610,6 +675,8 @@
       MG.UI.setBattleBtn(false);
       this.board.setView(MG.UI.settings.view || 'iso');
       MG.UI.setViewBtn(this.board.view);
+      this.setOrient(0);
+      MG.UI.showOrientDial(this.board.view === 'table');
       this.resetClock();
       MG.UI.setClockBtn(MG.UI.settings.clockShown);
       MG.UI.updateMoveList(this.game.sanHistory);
@@ -1036,7 +1103,18 @@
       this.battle.startEnd(kind, { speed: MG.UI.settings.speed, onDone: this.sceneDone(onDone) });
     },
 
+    // Fischer increment: a completed move tops up the mover's clock (countdown
+    // /flag only; puzzles aren't timed). Called once per move from afterMove.
+    addIncrement(color) {
+      const c = this.clock;
+      if (!c || c.mode === 'countup' || !c.inc) return;
+      if (this.session && this.session.mode === 'puzzle') return;
+      c[color] += c.inc;
+      this.renderClock(color, true);
+    },
+
     afterMove(m, mover) {
+      this.addIncrement(mover.c);
       if (m.flags === 'promo') {
         this.board.promoSparkle(m.to);
         // "A Star Is Born": a full cutscene for the new chair (battles on);

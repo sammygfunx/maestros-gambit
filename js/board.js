@@ -8,12 +8,18 @@
      'iso'   — isometric, Ivory's corner (the classic)
      'rot'   — the same stage seen from Ebony's corner (180°)
      'table' — across the table: straight-on, slightly elevated,
-               rows foreshortened, back rows smaller
+               rows foreshortened, back rows smaller. This view can be
+               spun to any of EIGHT fixed yaw angles (45° steps) via
+               this.orient (0..7) — see _tableRC()/the orient dial.
      'flat'  — a clean, familiar top-down 2D diagram board with
                procedurally-drawn black & white Staunton pieces
-               (drawFlat / drawPiece2D below; no isometric sprites)
-   rc2xy() accepts fractional row/col so tile corners and board
-   edges project correctly in every view.
+               (drawFlat / drawPiece2D below; no isometric sprites). It
+               honours this.orient too, snapped to 90° steps, so it can
+               be read from either side (white or black at the bottom).
+   this.orient is the board yaw in 45° steps (0 = the classic White-at-
+   front view). It only affects 'table' and 'flat'; iso/rot keep their
+   own two fixed corners. rc2xy() accepts fractional row/col so tile
+   corners and board edges project correctly in every view.
    ============================================================ */
 (function () {
   const MG = (globalThis.MG = globalThis.MG || {});
@@ -284,7 +290,8 @@
       this.lastMove = null;       // {from, to}
       this.checkSq = -1;
       this.anim = null;           // active move animation
-      this.view = 'iso';          // 'iso' | 'rot' | 'table'
+      this.view = 'iso';          // 'iso' | 'rot' | 'table' | 'flat'
+      this.orient = 0;            // board yaw in 45° steps (0..7); table/flat only
       this.theme = THEMES.classic; // board palette (see THEMES)
       this.layout();
     }
@@ -293,6 +300,14 @@
       this.view = (v === 'rot' || v === 'table' || v === 'flat') ? v : 'iso';
       this.layout();
     }
+
+    // Spin the table/flat board to one of 8 fixed yaw angles (45° steps).
+    // iso/rot ignore it (they are their own two isometric corners).
+    setOrient(o) {
+      this.orient = ((Math.round(o) % 8) + 8) % 8;
+    }
+    // does the current view respond to this.orient? (drives the dial's visibility)
+    orientable() { return this.view === 'table' || this.view === 'flat'; }
 
     setTheme(name) {
       this.theme = THEMES[name] || THEMES.classic;
@@ -346,7 +361,28 @@
       };
     }
 
-    ts(r) { const { D0 } = this.tp; return D0 / (D0 + 7.5 - r); } // table row scale
+    /* 'table' view yaw: rotate the (file,row) plane about the board centre by
+       this.orient·45°, then foreshorten by depth. ru = lateral position, rr =
+       row-like depth coordinate, s = perspective scale. At orient 0 this is
+       exactly the original straight-on table (ru = c-3.5, rr = r-3.5, so
+       s = D0/(D0+7.5-r)); other orients spin the stage in 45° steps. */
+    _tableRC(r, c) {
+      const D0 = this.tp.D0;
+      const th = this.orient * Math.PI / 4;
+      const cu = c - 3.5, cr = r - 3.5;
+      const cs = Math.cos(th), sn = Math.sin(th);
+      const ru = cu * cs - cr * sn;
+      const rr = cu * sn + cr * cs;
+      return { ru, rr, s: D0 / (D0 + 4 - rr) };
+    }
+
+    /* 'flat' view orientation, snapped to a 90° step (0/1/2/3 = 0/90/180/270°)
+       so the diagram board stays axis-aligned. _flatDisp maps a logical (r,c)
+       to its on-screen cell; _flatInvert is the reverse (for hit-testing). */
+    _flatStep() { return ((Math.round(this.orient / 2) % 4) + 4) % 4; }
+    _flatRot(r, c, n) { for (let i = 0; i < n; i++) { const nr = c, nc = 7 - r; r = nr; c = nc; } return [r, c]; }
+    _flatDisp(r, c) { return this._flatRot(r, c, this._flatStep()); }
+    _flatInvert(dr, dc) { return this._flatRot(dr, dc, (4 - this._flatStep()) % 4); }
 
     sq2xy(sq) {
       const r = Math.floor(sq / 8), c = sq % 8;
@@ -355,12 +391,13 @@
     rc2xy(r, c) { // fractional r/c welcome (tile corners, board edges)
       if (this.view === 'flat') {
         const f = this.flat;
-        return { x: f.ox + (c + 0.5) * f.ts, y: f.oy + (r + 0.5) * f.ts };
+        const [dr, dc] = this._flatDisp(r, c);
+        return { x: f.ox + (dc + 0.5) * f.ts, y: f.oy + (dr + 0.5) * f.ts };
       }
       if (this.view === 'table') {
         const { U, V, cx, cy } = this.tp;
-        const s = this.ts(r);
-        return { x: cx + (c - 3.5) * U * s, y: cy + V * s };
+        const t = this._tableRC(r, c);
+        return { x: cx + t.ru * U * t.s, y: cy + V * t.s };
       }
       if (this.view === 'rot') { r = 7 - r; c = 7 - c; }
       return {
@@ -372,14 +409,20 @@
       let r, c;
       if (this.view === 'flat') {
         const f = this.flat;
-        c = Math.floor((mx - f.ox) / f.ts);
-        r = Math.floor((my - f.oy) / f.ts);
+        const dc = Math.floor((mx - f.ox) / f.ts);
+        const dr = Math.floor((my - f.oy) / f.ts);
+        if (dr < 0 || dr > 7 || dc < 0 || dc > 7) return -1;
+        [r, c] = this._flatInvert(dr, dc);
       } else if (this.view === 'table') {
         const { D0, U, V, cx, cy } = this.tp;
         const s = (my - cy) / V;
         if (s <= 0.02) return -1;
-        r = Math.round(7.5 + D0 - D0 / s);
-        c = Math.round((mx - cx) / (U * s) + 3.5);
+        const rr = D0 + 4 - D0 / s;          // invert the perspective…
+        const ru = (mx - cx) / (U * s);
+        const th = this.orient * Math.PI / 4;  // …then the yaw rotation
+        const cs = Math.cos(th), sn = Math.sin(th);
+        c = Math.round(ru * cs + rr * sn + 3.5);
+        r = Math.round(-ru * sn + rr * cs + 3.5);
       } else {
         const A = ((mx - this.ox) * 2) / this.tw;   // c - r
         const B = ((my - this.oy) * 2) / this.th;   // c + r
@@ -393,13 +436,14 @@
     /* per-square sprite scale / ground offset / mirror */
     sqScale(sq) {
       if (this.view === 'flat') return this.flat.ts / 52;
-      return this.view === 'table' ? (this.tp.U * this.ts(Math.floor(sq / 8))) / 52 : this.scale;
+      return this.view === 'table'
+        ? (this.tp.U * this._tableRC(Math.floor(sq / 8), sq % 8).s) / 52 : this.scale;
     }
     footOff(sq) {
       if (this.view === 'flat') return 0;
       if (this.view !== 'table') return this.th * 0.18;
-      const r = Math.floor(sq / 8);
-      return (this.rc2xy(r + 0.5, 3.5).y - this.rc2xy(r - 0.5, 3.5).y) * 0.18;
+      const r = Math.floor(sq / 8), c = sq % 8;
+      return (this.rc2xy(r + 0.5, c).y - this.rc2xy(r - 0.5, c).y) * 0.18;
     }
     flip(piece) { return (piece.c === 'b') !== (this.view === 'rot'); }
 
@@ -728,17 +772,21 @@
         for (let c = 0; c < 8; c++) this.drawTile(ctx, r, c, game);
       }
 
-      // coordinate labels (white at the bottom: rank 1 = bottom row)
+      // coordinate labels, oriented with the board: the left edge and bottom
+      // edge each read off the logical square sitting there (so rotating to
+      // black's side flips ranks 1↔8 / files a↔h, and the 90° spins swap axes).
       ctx.fillStyle = F.label;
       ctx.font = `${Math.max(9, Math.round(f.ts * 0.24))}px Georgia, serif`;
       ctx.textBaseline = 'middle';
-      for (let r = 0; r < 8; r++) {
-        ctx.textAlign = 'center';
-        ctx.fillText(String(8 - r), f.ox - m * 0.5, f.oy + (r + 0.5) * f.ts);
-      }
-      for (let c = 0; c < 8; c++) {
-        ctx.textAlign = 'center';
-        ctx.fillText(String.fromCharCode(97 + c), f.ox + (c + 0.5) * f.ts, f.oy + f.size + m * 0.55);
+      ctx.textAlign = 'center';
+      const ranksVertical = this._flatStep() % 2 === 0;
+      for (let i = 0; i < 8; i++) {
+        const [lr, lc] = this._flatInvert(i, 0);       // left edge, display row i
+        const lt = ranksVertical ? String(8 - lr) : String.fromCharCode(97 + lc);
+        ctx.fillText(lt, f.ox - m * 0.5, f.oy + (i + 0.5) * f.ts);
+        const [br, bc] = this._flatInvert(7, i);       // bottom edge, display col i
+        const bt = ranksVertical ? String.fromCharCode(97 + bc) : String(8 - br);
+        ctx.fillText(bt, f.ox + (i + 0.5) * f.ts, f.oy + f.size + m * 0.55);
       }
 
       // pieces — back rank (r=0) first so taller front pieces overlap upward

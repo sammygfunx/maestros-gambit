@@ -35,7 +35,7 @@
         <button class="btn" id="btn-options">Options</button>
         <button class="btn" id="btn-credits">Credits</button>
       </div>
-      <p class="footer-note">Click anywhere to enable sound &nbsp;·&nbsp; v2.9</p>
+      <p class="footer-note">Click anywhere to enable sound &nbsp;·&nbsp; v2.10</p>
     </div>
 
     <!-- ====== GAME SETUP SCREEN ====== -->
@@ -150,10 +150,33 @@
       <div class="opt-row">
         <label>Chess Clock</label>
         <div class="seg seg-small" id="seg-clock">
-          <button class="seg-btn sel" data-v="countdown">Count Down <small>time limit</small></button>
           <button class="seg-btn" data-v="countup">Count Up <small>total time</small></button>
+          <button class="seg-btn sel" data-v="countdown">Count Down <small>time limit</small></button>
+          <button class="seg-btn" data-v="flag">Flag-Fall <small>sudden death</small></button>
         </div>
       </div>
+      <div class="opt-row" id="row-tc">
+        <label>Time Control</label>
+        <div class="seg seg-small" id="seg-tc">
+          <button class="seg-btn" data-v="1+0">1+0 <small>bullet</small></button>
+          <button class="seg-btn" data-v="3+0">3+0 <small>blitz</small></button>
+          <button class="seg-btn" data-v="3+2">3+2 <small>blitz</small></button>
+          <button class="seg-btn" data-v="5+0">5+0 <small>blitz</small></button>
+          <button class="seg-btn sel" data-v="10+0">10+0 <small>rapid</small></button>
+          <button class="seg-btn" data-v="custom">Custom</button>
+        </div>
+      </div>
+      <div class="opt-row hidden" id="row-tc-custom">
+        <label>Custom Clock</label>
+        <span class="tc-custom">
+          <input type="number" id="tc-mins" min="1" max="180" value="5" inputmode="numeric"> min
+          + <input type="number" id="tc-inc" min="0" max="60" value="0" inputmode="numeric"> sec/move
+        </span>
+      </div>
+      <p class="hint-text">Flag-Fall is sudden death — run out of time and you lose
+      (online clocks stay an honour-system display). The time control sets the base
+      clock plus a Fischer increment added after each move; clocks freeze during
+      battle scenes.</p>
       <div class="opt-row">
         <label>Banter</label>
         <div class="seg seg-small" id="seg-banter">
@@ -383,10 +406,13 @@
           <button class="btn btn-small" id="btn-undo" title="Take back a move">Undo</button>
           <button class="btn btn-small" id="btn-toggle-battles" title="Toggle battle scenes">Battles: On</button>
           <button class="btn btn-small" id="btn-view" title="Cycle camera view">View: Ivory</button>
+          <button class="btn btn-small hidden" id="btn-orient" title="Spin the board (table view)" aria-label="Board angle"><svg class="bico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5a7 7 0 1 1-6.3 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M12 2.5 12 7.5 8 5Z" fill="currentColor"/></svg><span class="blabel">Angle</span></button>
           <button class="btn btn-small" id="btn-clock" title="Show or hide the chess clocks">Clock: On</button>
           <button class="btn btn-small" id="btn-resign">Resign</button>
           <button class="btn btn-small" id="btn-quit">Menu</button>
         </div>
+        <!-- camera-angle dial popover (8 fixed yaw angles); wedges built by ui.js -->
+        <div id="orient-dial" class="hidden" role="group" aria-label="Board view angle"></div>
       </div>
       <div id="thinking" class="hidden"><span class="metronome">𝅘𝅥</span> The maestro deliberates…</div>
     </div>

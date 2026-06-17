@@ -11,8 +11,9 @@
 
   const UI = {
     handlers: {},
-    settings: { sfx: 0.8, music: 0.6, speed: 1, view: 'iso', musicOn: true, track: 0, relayUrl: '',
-      clockMode: 'countdown', clockShown: true, banter: true, freePlay: false, boardTheme: 'classic' },
+    settings: { sfx: 0.8, music: 0.6, speed: 1, view: 'iso', orient: 0, musicOn: true, track: 0, relayUrl: '',
+      clockMode: 'countdown', tcId: '10+0', tcBase: 600, tcInc: 0,
+      clockShown: true, banter: true, freePlay: false, boardTheme: 'classic' },
       // reduceMotion is intentionally absent from the defaults: on first run it is
       // seeded from the OS prefers-reduced-motion setting (see init); thereafter the
       // player's explicit Options choice persists.
@@ -69,7 +70,15 @@
       this.segInit('seg-allow-undo', (v) => { this.setup.allowUndo = v === 'on'; this.savePrefs(); },
         this.setup.allowUndo ? 'on' : 'off');
       this.segInit('seg-speed', (v) => { this.settings.speed = +v; this.savePrefs(); }, String(this.settings.speed));
-      this.segInit('seg-clock', (v) => { this.settings.clockMode = v; this.savePrefs(); handlers.setClockMode(v); }, this.settings.clockMode);
+      // Chess clock: Count Up / Count Down / Flag-Fall (sudden death). The time
+      // control (base + increment) only applies to the two limited modes, so its
+      // row is shown/hidden to match.
+      this.segInit('seg-clock', (v) => {
+        this.settings.clockMode = v; this.savePrefs();
+        handlers.setClockMode(v);
+        this.updateTimeControlVisibility();
+      }, this.settings.clockMode);
+      this.initTimeControl();
       this.segInit('seg-banter', (v) => { this.settings.banter = v === 'on'; this.savePrefs(); }, this.settings.banter ? 'on' : 'off');
       // Accessibility: Reduce Motion (calms menus + forces instant captures) and a
       // colour-blind-safe Board Theme. Both persist in mg_prefs.
@@ -152,6 +161,9 @@
       nav('btn-quit', () => handlers.quitToMenu());
       nav('btn-toggle-battles', () => handlers.toggleBattles());
       nav('btn-view', () => handlers.cycleView());
+      nav('btn-orient', () => this.toggleOrientDial());
+      this.buildOrientDial();
+      this.setOrientDial(this.settings.orient || 0);
       nav('btn-clock', () => handlers.toggleClock());
       nav('btn-go-menu', () => handlers.quitToMenu());
       nav('btn-go-rematch', () => handlers.rematch());
@@ -340,6 +352,98 @@
         apply(b.dataset.v);
         onChange(b.dataset.v);
       }));
+    },
+
+    /* ---- time controls (for the Count Down / Flag-Fall clock modes) ----
+       Presets pay homage to the standard bullet/blitz/rapid controls; "Custom"
+       reveals minutes + increment inputs. base is seconds, inc seconds/move. */
+    TC_PRESETS: {
+      '1+0': [60, 0], '3+0': [180, 0], '3+2': [180, 2], '5+0': [300, 0], '10+0': [600, 0],
+    },
+    initTimeControl() {
+      const seg = $('seg-tc');
+      if (seg) {
+        // mark the stored preset selected (custom if it isn't a known preset)
+        const id = this.TC_PRESETS[this.settings.tcId] ? this.settings.tcId : 'custom';
+        this.segInit('seg-tc', (v) => {
+          if (v === 'custom') {
+            this.settings.tcId = 'custom';
+            this.savePrefs();
+            this.applyCustomTimeControl();
+          } else {
+            const [base, inc] = this.TC_PRESETS[v];
+            this.settings.tcId = v;
+            this.handlers.setTimeControl(base, inc, v); // persists + restarts clocks
+          }
+          this.updateTimeControlVisibility();
+        }, id);
+      }
+      // custom inputs
+      const mins = $('tc-mins'), inc = $('tc-inc');
+      if (mins && inc) {
+        if (this.settings.tcId === 'custom') {
+          mins.value = Math.max(1, Math.round((this.settings.tcBase || 600) / 60));
+          inc.value = Math.max(0, Math.round(this.settings.tcInc || 0));
+        }
+        const onChange = () => this.applyCustomTimeControl();
+        mins.addEventListener('change', onChange);
+        inc.addEventListener('change', onChange);
+      }
+      this.updateTimeControlVisibility();
+    },
+    applyCustomTimeControl() {
+      const mins = $('tc-mins'), inc = $('tc-inc');
+      if (!mins || !inc) return;
+      const base = Math.max(1, Math.round((parseFloat(mins.value) || 1) * 60));
+      const incS = Math.max(0, Math.round(parseFloat(inc.value) || 0));
+      this.handlers.setTimeControl(base, incS, 'custom');
+    },
+    updateTimeControlVisibility() {
+      const row = $('row-tc'), custom = $('row-tc-custom');
+      const limited = this.settings.clockMode !== 'countup';
+      if (row) row.classList.toggle('hidden', !limited);
+      if (custom) custom.classList.toggle('hidden', !(limited && this.settings.tcId === 'custom'));
+    },
+
+    /* ---- camera orientation dial (table view) ----
+       An 8-wedge popover that spins the table board to a fixed yaw (45° steps).
+       Built once; the highlighted wedge tracks the live orientation. */
+    buildOrientDial() {
+      const host = $('orient-dial');
+      if (!host || host.dataset.built) return;
+      host.dataset.built = '1';
+      for (let i = 0; i < 8; i++) {
+        const ang = i * 45;
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'odial-wedge';
+        b.dataset.o = i;
+        b.title = 'View angle ' + ang + '°';
+        // place around a circle; the arrow points outward (the way you're facing)
+        b.style.transform = `rotate(${ang}deg) translateY(-44px) rotate(${-ang}deg)`;
+        b.innerHTML = `<span class="odial-arrow" style="transform:rotate(${ang}deg)">▲</span>`;
+        b.addEventListener('click', () => { MG.Audio.uiClick(); this.handlers.setOrient(+b.dataset.o); });
+        host.appendChild(b);
+      }
+      const dot = document.createElement('span');
+      dot.className = 'odial-hub';
+      host.appendChild(dot);
+    },
+    setOrientDial(o) {
+      const host = $('orient-dial');
+      if (!host) return;
+      host.querySelectorAll('.odial-wedge').forEach((w) => w.classList.toggle('sel', +w.dataset.o === o));
+    },
+    // show/hide the dial toggle button + close the popover when not orientable
+    showOrientDial(show) {
+      const btn = $('btn-orient');
+      if (btn) btn.classList.toggle('hidden', !show);
+      if (!show) { const d = $('orient-dial'); if (d) d.classList.add('hidden'); }
+    },
+    toggleOrientDial() {
+      this.buildOrientDial();
+      const d = $('orient-dial');
+      if (d) d.classList.toggle('hidden');
     },
 
     /* Build the opponent picker: a scrollable list of conductor cards grouped

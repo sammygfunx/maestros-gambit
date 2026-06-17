@@ -1,5 +1,32 @@
 MAESTRO'S GAMBIT — PROJECT STATE
-Last updated: 2026-06-17 (v2.9 — ONLINE UNDO (CONSENT) + DETERMINISTIC BATTLE LINES +
+Last updated: 2026-06-17 (v2.10 — BOARD-VIEW & CLOCK UPGRADES. A presentation/
+control pass — the chess ENGINE/AI/opening-book/rating math/choreography DATA are
+UNTOUCHED (render + clock glue + UI only). THREE features: (1) BLACK-SIDE
+PERSPECTIVE for the Table and Classic-2D views — the board now faces the human's
+side by default (playing Black puts Black at the bottom), so those two views are
+no longer locked to White. (2) 45° ROTATION / EIGHT VIEWPOINTS for the Table view:
+board.js gained this.orient (0..7 = yaw in 45° steps); _tableRC() rotates the
+(file,row) plane about the centre before the perspective foreshorten (θ=0 is
+byte-identical to the old straight-on table, so zero regression), squareAt inverts
+it for hit-testing. A small 8-wedge ANGLE DIAL popover (HUD "Angle" button, shown
+only in Table view) jumps to any angle; orient persists in mg_prefs.orient and the
+View cycle button is unchanged (iso/rot keep their two isometric corners). Classic
+2D honours orient too, snapped to 90° steps, with rotation-aware rank/file labels.
+(3) FLAG-FALL / SPEED CLOCK: a third clock mode 'flag' (sudden death — running out
+of time LOSES, wired into endGame as a 'Wins on Time' result), a standard
+TIME-CONTROL picker (1+0 bullet / 3+0 / 3+2 / 5+0 blitz / 10+0 rapid + a custom
+minutes+increment), and a Fischer INCREMENT topped up after each move. Honours the
+existing freeze-during-battle behaviour (clock only ticks when state==='board' &&
+!busy); persists clockMode/tcId/tcBase/tcInc in mg_prefs. Online stays honour-system
+(clocks tick independently per client) so flag-fall auto-loss is local-modes-only.
+Verified: chess 34/34, rating 20/20, ai 19/19, pgn 23/23, net relay OK; node --check
+on board/main/ui; headless stills — table at orient 0 (regression-clean) /1 /2 /4
+/6, Classic-2D from White and Black, the Options time-control picker, and the angle
+dial open; a ?shot=flagfall&sec=2 deterministically ends the game on the
+'Ebony Philharmonic Wins on Time' card (Ivory's flag down at 0:00). Build ships
+__MG_DEV__=false. Touched: js/board.js, js/main.js, js/ui.js, index.html,
+css/style.css, README.md. See V2.10 CHANGES below.)
+Prior: v2.9 — ONLINE UNDO (CONSENT) + DETERMINISTIC BATTLE LINES +
 TEAM RENAME. Three changes validated by Sam + brother over real online play; the
 chess ENGINE/AI/choreography data are UNTOUCHED. (1) TEAM RENAME everywhere: "Obsidian
 Philharmonic" → "Ebony Philharmonic" and "Ivory Philharmonic" → "Ivory Sinfonia"
@@ -192,6 +219,76 @@ Prior: v1.2 — choreography variety, castling/en-passant/promotion/stalemate/
 draw set-piece scenes, elaborate checkmate finale
 Prior: v1.1 — battle-end fix, curtain hold, camera views, quit confirm,
 mid-battle resize
+
+V2.10 CHANGES — BOARD-VIEW & CLOCK UPGRADES (render + control + UI only)
+  (verified: chess 34/34; rating 20/20; ai 19/19; pgn 23/23; net relay OK; node
+  --check on js/board.js, js/main.js, js/ui.js; headless 1280x800 stills via the
+  dev hooks — the Table view at orient 0 is pixel-identical to the old straight-on
+  stage [regression-clean], orient 1/2/4/6 spin the stage to a corner/edge-forward
+  diamond, Classic 2D reads correctly from BOTH White's and Black's side [pieces +
+  flipped rank/file labels], the Options screen shows the 3-mode clock + the
+  time-control picker, and the angle dial opens over the table. A
+  ?shot=flagfall&sec=2 run deterministically lands on the 'Ebony Philharmonic Wins
+  on Time' game-over card with Ivory's clock at 0:00 — confirming a timeout ends
+  the game. The chess ENGINE, AI, opening book, rating math, and choreography DATA
+  are byte-for-byte unchanged — only the render layer, clock controller, and UI
+  glue moved.)
+
+  (1) BLACK-SIDE PERSPECTIVE + 8 VIEWPOINTS (js/board.js + js/main.js + js/ui.js +
+      index.html + css). board.js gained this.orient (0..7), the board YAW in 45°
+      steps, and setOrient()/orientable(). It affects ONLY 'table' and 'flat';
+      'iso'/'rot' keep their own two isometric corners (so Black perspective for the
+      isometric stage is still the existing 'rot' view via the View button).
+      - TABLE YAW: the new _tableRC(r,c) takes centre-relative (cu,cr)=(c-3.5,r-3.5),
+        rotates them by orient·45°, then foreshortens by depth (s = D0/(D0+4-rr)).
+        At orient 0 this reduces EXACTLY to the original (ru=c-3.5, rr=r-3.5 →
+        s=D0/(D0+7.5-r)), so the default table is unchanged. rc2xy/sqScale/footOff
+        all route through it; squareAt inverts the perspective then the rotation
+        (rotate by -θ) so clicks land on the right square at any angle. The depth
+        sort (drawables by y) still orders near-over-far because larger s ⇒ larger y.
+      - FLAT ORIENTATION: snapped to 90° steps (_flatStep = round(orient/2)%4) so the
+        diagram stays axis-aligned. _flatDisp maps logical (r,c)→on-screen cell by
+        rotating the 8×8 index ((r,c)→(c,7-r) per quarter-turn); _flatInvert reverses
+        it for hit-testing; the rank/file labels are computed per display edge from
+        the inverse, so 180° flips ranks 1↔8 / files a↔h (and 90°/270° swap the axes).
+      - ANGLE DIAL (ui.js buildOrientDial/setOrientDial/showOrientDial/toggleOrient
+        Dial + #orient-dial + #btn-orient + css): an 8-wedge circular popover, each
+        wedge placed by an inline rotate/translate transform (no images), the live
+        angle highlighted. The HUD "Angle" icon-button (original inline-SVG ⟳ glyph,
+        no icon font) shows ONLY in Table view (showOrientDial, driven from
+        cycleView + startGame) and toggles the popover; clicking a wedge calls
+        handlers.setOrient. orient persists in mg_prefs.orient.
+      - DEFAULT FACING: startGame (and the PGN-replay path) call setOrient(humanColor
+        ==='b' ? 4 : 0), so the table/flat board faces the human's side automatically;
+        the dial overrides live. 2P/PGN default to White's side (0).
+      - DEV HOOKS: ?shot=board now takes &orient=0..7 and &dial=1 (open the dial).
+
+  (2) FLAG-FALL CLOCK + TIME CONTROLS (js/main.js + js/ui.js + index.html + css).
+      The clock had two modes (countup / countdown, fixed 10 min, no flag-fall); now
+      three, with a configurable time control.
+      - MODES (settings.clockMode): 'countup' (total thinking time, no limit),
+        'countdown' (casual limit — flashes at 0:00 but does NOT lose), and 'flag'
+        (SUDDEN DEATH — a fallen flag loses). clockModeNow() normalises the stored
+        value; resetClock builds {w,b,mode,inc}.
+      - TIME CONTROL (settings.tcId/tcBase/tcInc): timeControl() returns {base,inc}.
+        Options has a preset segment (1+0 / 3+0 / 3+2 / 5+0 / 10+0) + Custom (minutes
+        + increment number inputs), wired via initTimeControl/applyCustomTimeControl;
+        the row hides in count-up mode (updateTimeControlVisibility). setTimeControl()
+        stores + restarts the clocks. Default stays 10+0 so countdown is unchanged.
+      - FISCHER INCREMENT: addIncrement(color) tops up the mover's clock after each
+        move (called once per move from afterMove; countdown/flag only, skips puzzles).
+      - FLAG-FALL: updateClock, in the limited-mode branch, calls flagFall(turn) when
+        the side to move hits 0:00. flagFall → endGame('… Wins on Time', winner) using
+        the existing rated game-over flow. It honours freeze-during-battle for free
+        (updateClock only ticks when state==='board' && !busy && !over, so a battle
+        scene can't run a flag down). renderClock flashes the .flag class at 0:00 for
+        BOTH limited modes.
+      - ONLINE: clocks remain an honour-system cosmetic that ticks independently on
+        each client, so flagFall RETURNS EARLY for session.mode==='online' (an
+        auto-loss would desync the two engines). Flag-fall is for cpu/2P games.
+      - DEV HOOK: ?shot=flagfall&sec=N (&inc=N) starts a 2P flag clock and ticks it to
+        zero SYNCHRONOUSLY at load (not via real-time frames), so a headless capture
+        deterministically shows the win-on-time card.
 
 V2.9 CHANGES — ONLINE UNDO (CONSENT) + DETERMINISTIC BATTLE LINES + TEAM RENAME
   (verified: chess 34/34; rating 20/20; ai 19/19; pgn 23/23 [the White/Black header

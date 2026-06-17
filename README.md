@@ -90,13 +90,22 @@ The roadmap for getting it sold is `next_steps_2.txt`.
   elevated perspective with foreshortened rows — and **Classic 2D**, a clean,
   familiar top-down diagram board with procedurally-drawn black & white Staunton
   pieces for when you just want to read the position clearly (it honours the
-  colour-blind-safe Board Theme too).
+  colour-blind-safe Board Theme too). The board faces **your** side by default,
+  so playing Black puts Black at the bottom in the table and Classic 2D views.
+  In the table view a small **angle dial** (HUD "Angle" button) spins the stage
+  to any of **eight fixed viewpoints** (45° steps) — read the position from
+  whichever corner you like.
 - Promotion ceremony, captured-musician trays, algebraic move list, undo, resign.
 - **Chess clocks** — per-player LED seven-segment timers (Ivory in gold, Ebony
   in violet) that only run for the side to move and freeze during battle scenes.
-  Two modes in Options: *Count Down* (a 10-minute time control — it flashes at
-  0:00, no flag-fall) or *Count Up* (tracks each player's total thinking time).
-  A HUD **Clock** button shows or hides them; the choice persists.
+  Three modes in Options: *Count Up* (tracks each player's total thinking time),
+  *Count Down* (a casual time limit — it flashes at 0:00 but running out doesn't
+  lose), and *Flag-Fall* — proper sudden death, where letting your flag fall
+  **loses the game**. A standard **time control** picker offers 1+0 bullet, 3+0
+  / 3+2 / 5+0 blitz and 10+0 rapid, or a custom base + Fischer increment (the
+  increment tops up your clock after each move). A HUD **Clock** button shows or
+  hides them; all choices persist. (Online clocks stay an honour-system display
+  — each client ticks independently — so flag-fall is for local games.)
 - All sound effects synthesized live with WebAudio (pizzicato, timpani, cymbals,
   reed squeaks, FM piano, applause…).
 - **Bundled original soundtrack** — three looping synth-chamber tracks (*Overture
@@ -206,8 +215,11 @@ shots/            reference screenshots taken during development (not in repo; r
 
 ## Dev/test hooks (URL params)
 `?shot=board` (add `&view=rot|table|flat` for the other cameras — `flat` is the
-classic top-down 2D board — `&theme=contrast` for the colour-blind-safe palette,
-`&select=<square>` to show move markers) ·
+classic top-down 2D board — `&orient=0..7` to spin the table/flat board to a
+fixed yaw angle, `&dial=1` to open the angle dial, `&theme=contrast` for the
+colour-blind-safe palette, `&select=<square>` to show move markers) ·
+`?shot=flagfall&sec=N` ends a game on a flag-fall after an N-second clock
+(verifies a timeout loses) ·
 `?shot=battle&att=Q&def=K&mate=1&ff=5` (ff = fast-forward seconds; `&alt=N` picks a take)
 `?shot=castle&c=w` · `?shot=ep` · `?shot=star&promo=Q|R|B|N` · `?shot=end&kind=draw|stalemate`
 `?shot=capture` / `?shot=mate` (scripted games) · `?shot=promo` · `?shot=gameover`

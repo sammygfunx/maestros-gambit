@@ -628,9 +628,54 @@ html, body {
 #move-list .mv-last { color: var(--gold-bright); }
 .hud-buttons { display: flex; flex-wrap: wrap; gap: 6px; }
 .hud-buttons .btn { flex: 1 1 44%; }
-/* inline icon glyphs in HUD buttons (eye = View, swords = Battles) */
+/* inline icon glyphs in HUD buttons (eye = View, swords = Battles, ⟳ = Angle) */
 .bico { width: 1em; height: 1em; display: inline-block; vertical-align: -0.13em; margin-right: .34em; }
 .btn .blabel { vertical-align: baseline; }
+
+/* ---------- camera-angle dial (table view) ----------
+   An 8-wedge popover floated over the playfield, anchored to the HUD button
+   stack. Each wedge sits around a circle (placed by an inline transform from
+   ui.js); the highlighted one is the live view angle. */
+#orient-dial {
+  position: absolute; right: 8px; bottom: 62px;
+  width: 116px; height: 116px;
+  background: rgba(12,6,18,.94);
+  border: 1px solid var(--gold-dim, #a87f33); border-radius: 50%;
+  box-shadow: 0 6px 20px -6px #000, inset 0 0 18px -8px var(--gold-bright, #ffd98a);
+  z-index: 6;
+}
+.odial-wedge {
+  position: absolute; left: 50%; top: 50%; width: 26px; height: 26px;
+  margin: -13px 0 0 -13px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid #4a3157; border-radius: 50%;
+  background: rgba(40,24,52,.9); color: #cdbb98;
+  cursor: pointer; padding: 0;
+  transition: background .12s, color .12s, transform .05s;
+}
+.odial-wedge:hover { background: #3a2147; color: #fff; }
+.odial-wedge.sel {
+  background: var(--gold, #c9a44f); color: #1a0f08;
+  border-color: var(--gold-bright, #ffd98a);
+  box-shadow: 0 0 10px -2px var(--gold-bright, #ffd98a);
+}
+.odial-arrow { font-size: 12px; line-height: 1; display: block; }
+.odial-hub {
+  position: absolute; left: 50%; top: 50%; width: 14px; height: 14px;
+  margin: -7px 0 0 -7px; border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #5a3a6e, #2a1636);
+  border: 1px solid #6b4c80;
+}
+
+/* the time-control picker carries six options — keep each compact */
+#seg-tc .seg-btn { min-width: 62px; padding: 7px 9px; }
+
+/* custom time-control inputs (Options) */
+.tc-custom { display: inline-flex; align-items: center; gap: 6px; flex: 1; color: var(--parchment); font-size: 15px; }
+.tc-custom input[type=number] {
+  width: 58px; background: #1a0f24; color: var(--parchment);
+  border: 1px solid #4a3157; border-radius: 6px; padding: 5px 7px; font-size: 15px;
+}
 
 /* ---------- chess clocks (DOM seven-segment, stays crisp on hi-DPI) ---------- */
 .mg-clock {
