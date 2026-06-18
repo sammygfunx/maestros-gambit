@@ -179,7 +179,7 @@
         if (v) { this.board.setView(v); MG.UI.setViewBtn(this.board.view); }
         // &orient=N (0..7) spins the table/flat board to a fixed yaw for stills
         const ori = q.get('orient');
-        if (ori != null) { this.setOrient(+ori); MG.UI.showOrientDial(this.board.view === 'table'); }
+        if (ori != null) { this.setOrient(+ori); MG.UI.showOrientDial(this.board.orientable()); }
         if (q.get('dial')) MG.UI.toggleOrientDial();   // open the angle dial for a still
         const th = q.get('theme');
         if (th) this.board.setTheme(th);
@@ -324,7 +324,7 @@
       this.board.setView(next);
       MG.UI.setViewBtn(next);
       // the orient dial only makes sense for the table/flat views
-      MG.UI.showOrientDial(this.board.orientable() && this.board.view === 'table');
+      MG.UI.showOrientDial(this.board.orientable());
     },
 
     // jump the table/flat board to one of the 8 fixed yaw angles (orient dial)
@@ -507,7 +507,7 @@
       // Face the board to the human's side by default (table/flat honour this):
       // playing Black starts from Black's perspective. The orient dial overrides.
       this.setOrient(session.humanColor === 'b' ? 4 : 0);
-      MG.UI.showOrientDial(this.board.view === 'table');
+      MG.UI.showOrientDial(this.board.orientable());
       this.resetClock();
       MG.UI.setClockBtn(MG.UI.settings.clockShown);
       MG.UI.updateMoveList([]);
@@ -676,7 +676,7 @@
       this.board.setView(MG.UI.settings.view || 'iso');
       MG.UI.setViewBtn(this.board.view);
       this.setOrient(0);
-      MG.UI.showOrientDial(this.board.view === 'table');
+      MG.UI.showOrientDial(this.board.orientable());
       this.resetClock();
       MG.UI.setClockBtn(MG.UI.settings.clockShown);
       MG.UI.updateMoveList(this.game.sanHistory);

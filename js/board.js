@@ -329,7 +329,13 @@
       // portrait phones stack the name + a full-width "to move" line at the top,
       // so reserve a touch more headroom there.
       const topReserve = wide ? 70 : (portrait ? 72 : 56);
-      const bottomReserve = (!wide && portrait) ? Math.min(210, Math.max(150, H * 0.24)) : 40;
+      // Portrait bottom dock can reach ~280px when the Angle button is visible (7 buttons
+      // = 3 rows). Use a generous static floor; refine from the live element if visible.
+      let bottomReserve = (!wide && portrait) ? Math.min(310, Math.max(260, H * 0.34)) : 40;
+      if (!wide && portrait) {
+        const dock = document.getElementById('hud-side');
+        if (dock && dock.offsetHeight > 60) bottomReserve = Math.max(bottomReserve, dock.offsetHeight + 14);
+      }
       this.bottomReserve = bottomReserve;
       const availH = H - topReserve - bottomReserve;
       this.tw = Math.max(40, Math.min((W - sidePanel - 60) / 8.2, availH / 4.4));

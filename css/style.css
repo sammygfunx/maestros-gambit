@@ -669,6 +669,10 @@ html, body {
 
 /* the time-control picker carries six options — keep each compact */
 #seg-tc .seg-btn { min-width: 62px; padding: 7px 9px; }
+/* override on small viewports so 6 buttons don't overflow and clip "Custom" */
+@media (max-width: 760px), (max-height: 560px) {
+  #seg-tc .seg-btn { min-width: 0; padding: 7px 4px; }
+}
 
 /* custom time-control inputs (Options) */
 .tc-custom { display: inline-flex; align-items: center; gap: 6px; flex: 1; color: var(--parchment); font-size: 15px; }

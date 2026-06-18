@@ -1,5 +1,36 @@
 MAESTRO'S GAMBIT — PROJECT STATE
-Last updated: 2026-06-17 (v2.10 — BOARD-VIEW & CLOCK UPGRADES. A presentation/
+Last updated: 2026-06-18 (v2.11 — ANGLE DIAL + PORTRAIT POLISH. A targeted
+polish pass from iPhone-13-mini field testing of v2.10. Engine/AI/choreography
+data UNTOUCHED. THREE FIXES: (1) ANGLE DIAL FOR ALL ORIENTABLE VIEWS — the HUD
+"Angle" button now appears in BOTH the Table AND Classic-2D views (was Table-only;
+board.orientable() drives the four showOrientDial calls in main.js — the dial was
+always logically wired for flat, just never shown). (2) PORTRAIT DOCK OVERFLOW FIX
+— the seven-segment clock was overlapping the board's near ranks in portrait Table
+view because the bottom dock (with the Angle button visible = 7 buttons = 3 rows)
+grew to ~280px while bottomReserve was capped at ~195px. board.js layout() now uses
+a larger portrait floor (max(260, H*0.34)) and refines from the live offsetHeight of
+#hud-side when the game screen is visible — guaranteeing the board draws above the
+dock regardless of how many buttons are showing. (3) TIME-CONTROL "CUSTOM" BUTTON
+— the 6-button TC segment overflowed horizontally on 375px phones (6 × 62px ≈ 372px
+> 375px viewport minus padding; .seg has overflow:hidden so "Custom" was cropped to
+"Cus"). A narrow-viewport CSS override now zeroes the TC button min-width so flex
+distributes them equally and all labels fit. Verified: chess 34/34, rating 20/20,
+ai 19/19, pgn 23/23; node --check on board/main. Touched: js/main.js, js/board.js,
+css/style.css. See V2.11 CHANGES below.)
+OUTSTANDING PHONE ISSUES (deferred to next thread — need real-device iteration):
+  (A) DRAGGABLE ANGLE DIAL: currently the dial pops over the button stack and can
+      overlap other controls; requested: spawn in a free area and let the user drag
+      it by touch/mouse to any position (preserving that position across toggles).
+      Requires touch + mouse drag implementation + persistent position storage.
+  (B) PORTRAIT TABLE VIEW — BANNER GAP: the "X to move" banner lives in #hud-top
+      (position:absolute, top:0) while the Table view's near ranks render near the
+      vertical centre of the canvas due to perspective foreshortening — producing a
+      300–400px gap between the banner and the board edge. True fix needs JS to
+      dynamically re-anchor the banner just above where the board actually draws.
+  (C) BOARD STRETCH ON ROTATION CHANGE: switching portrait↔landscape mid-game
+      distorts the 2D view. Likely a viewport resize timing issue on iOS Safari;
+      listening to visualViewport resize or screen.orientation.change may help.
+Prior: v2.10 — BOARD-VIEW & CLOCK UPGRADES. A presentation/
 control pass — the chess ENGINE/AI/opening-book/rating math/choreography DATA are
 UNTOUCHED (render + clock glue + UI only). THREE features: (1) BLACK-SIDE
 PERSPECTIVE for the Table and Classic-2D views — the board now faces the human's
@@ -219,6 +250,44 @@ Prior: v1.2 — choreography variety, castling/en-passant/promotion/stalemate/
 draw set-piece scenes, elaborate checkmate finale
 Prior: v1.1 — battle-end fix, curtain hold, camera views, quit confirm,
 mid-battle resize
+
+V2.11 CHANGES — ANGLE DIAL + PORTRAIT POLISH (CSS + JS only; engine untouched)
+  (verified: chess 34/34; rating 20/20; ai 19/19; pgn 23/23; node --check on
+  js/main.js, js/board.js. Pure render/layout/CSS pass — ENGINE/CHESS/AI/BATTLE
+  UNTOUCHED.)
+
+  (1) ANGLE DIAL FOR ALL ORIENTABLE VIEWS (js/main.js):
+      board.orientable() returns true for BOTH 'table' and 'flat', but the four
+      showOrientDial() call-sites in main.js were guarded with the redundant
+      `&& this.board.view === 'table'`, hiding the dial from Classic-2D. Fixed by
+      replacing those guards with board.orientable() directly (cycleView / startGame /
+      loadPgnGame / the &orient= dev hook). The dial now appears — and persists its
+      position — in both Table and Classic-2D views.
+
+  (2) PORTRAIT DOCK OVERFLOW FIX (js/board.js layout()):
+      The bottom dock in portrait mode can reach ~280px when the Angle button is
+      visible (7 HUD buttons = 3 flex rows × 42px + clocks/caps/move-list above).
+      The old static bottomReserve formula was capped at ~195px (max(150, H*0.24)),
+      so the board's near ranks were drawn inside the dock area (visually behind the
+      clocks). Two-part fix:
+        - Static floor raised to max(260, H*0.34) with a 310px ceiling — e.g. 276px
+          on an 812px-tall iPhone 13 mini, clearing the full 278px dock.
+        - Live refinement: after the static estimate, reads hud-side.offsetHeight
+          (non-zero once the game screen is visible) and uses max(estimate, dockH+14)
+          so the reserve auto-tracks the actual dock regardless of button visibility.
+      The table/flat board in portrait now draws fully above the dock.
+
+  (3) TIME-CONTROL "CUSTOM" BUTTON FIX (css/style.css):
+      The 6-button Time Control segment (#seg-tc) used min-width:62px per button.
+      On a 375px-wide phone, 6 × 62px = 372px exceeds the available content width
+      (after screen padding), and .seg has overflow:hidden — so the last button
+      "Custom" was cropped to "Cus". A `@media (max-width:760px)` override now sets
+      `#seg-tc .seg-btn { min-width:0; padding:7px 4px }`, letting the 6 buttons share
+      the available width equally (each ~57px — enough for all labels at 14px font).
+
+  OUTSTANDING (DEFERRED): see the OUTSTANDING PHONE ISSUES section at the top of
+  this file for (A) draggable angle dial, (B) portrait banner gap above the Table
+  board, and (C) board stretch on rotation change — all require more care/iteration.
 
 V2.10 CHANGES — BOARD-VIEW & CLOCK UPGRADES (render + control + UI only)
   (verified: chess 34/34; rating 20/20; ai 19/19; pgn 23/23; net relay OK; node
