@@ -1,31 +1,23 @@
 MAESTRO'S GAMBIT — PROJECT STATE
-Last updated: 2026-06-18 (v2.12 — DRAGGABLE ANGLE DIAL + PORTRAIT TABLE BANNER.
-Two UI-only fixes for the deferred phone issues from v2.11. Engine/AI/choreography
-data UNTOUCHED. (A) DRAGGABLE ANGLE DIAL: #orient-dial changed from position:absolute
-inside #hud-side to position:fixed (z-index 15, above the HUD but below modals/banter
-toast). Pointer/touch drag is wired in buildOrientDial() via _wireDialDrag() — only
-starts a drag from the hub/background (not wedge buttons), uses setPointerCapture for
-smooth tracking, saves the dropped position to mg_prefs.settings.dialPos, and clamps
-to the viewport on restore. On first show (no saved position), _dialDefaultPos()
-places the dial above the Angle button (or to the left if not enough room), using the
-live getBoundingClientRect of #btn-orient; falls back to upper-left playfield quadrant
-if the button is hidden. Wedge click behaviour is fully preserved; a suppressNext flag
-blocks the phantom click that touch fires after a drag. (B) PORTRAIT TABLE BANNER
-GAP: App.updateBannerPos() checks portrait mode (innerHeight >= innerWidth) + view
-=== 'table' and re-anchors #hud-turn-banner just above the board's topmost rendered
-y-coordinate: top = board.tp.cy + board.tp.V * (D0/(D0+4+3.5)) - 8, with left:0
-right:0 text-align:center set via inline cssText; restores blank cssText for all
-other views/orientations. Called from resize(), cycleView(), startGame(), and
-loadPgnGame(). Dev hook: ?shot=board&view=table now also calls showOrientDial() so
-the Angle button is visible when &dial=1 fires, enabling proper position computation.
-Verified: chess 34/34, rating 20/20, ai 19/19, pgn 23/23; node --check on main/ui.
-Headless stills at 390x844: banner sits at the table board's far-rank edge (no 300px
-gap); dial spawns above the Angle button. Touched: js/main.js, js/ui.js,
-css/style.css, README.md. See V2.12 CHANGES below.)
-OUTSTANDING PHONE ISSUES (deferred — need real-device iteration):
-  (C) BOARD STRETCH ON ROTATION CHANGE: switching portrait↔landscape mid-game
-      distorts the 2D view. Likely a viewport resize timing issue on iOS Safari;
-      listening to visualViewport resize or screen.orientation.change may help.
+Last updated: 2026-06-18 (v2.13 — ORIENTATION-CHANGE RESIZE FIX (iOS Safari timing).
+JS-only fix in js/main.js; Engine/AI/choreography UNTOUCHED. iOS Safari fires the
+window resize event BEFORE the viewport finishes updating on rotation, so
+innerWidth/innerHeight still reflect the pre-rotation size — causing the board to
+stretch/squeeze until the next redraw. Fix: in App.init(), three additional listeners
+are registered ALONGSIDE the existing window resize listener (additive, no removal):
+(1) window.screen.orientation 'change' (modern API, guarded by feature-detect),
+(2) window 'orientationchange' (legacy iOS fallback), and (3) window.visualViewport
+'resize' (guarded by feature-detect). All three call a shared _deferredResize()
+closure that wraps this.resize() in requestAnimationFrame (or setTimeout 100 ms if
+rAF absent), letting the viewport settle before recalculating canvas dimensions and
+board layout. The existing window resize listener is UNCHANGED. Desktop is unaffected
+(rAF fires once per frame — no observable change). Cannot fully verify on headless;
+desktop regression-clean at 1280×800. REAL-DEVICE RETEST RECOMMENDED on iPhone after
+rotating mid-game. Touched: js/main.js only. See V2.13 CHANGES below.)
+OUTSTANDING PHONE ISSUES:
+  (C) BOARD STRETCH ON ROTATION CHANGE: fix shipped in v2.13 (deferred listeners +
+      rAF delay). Needs real-device retest to confirm; headless cannot reproduce the
+      iOS Safari timing issue.
 Prior: v2.10 — BOARD-VIEW & CLOCK UPGRADES. A presentation/
 control pass — the chess ENGINE/AI/opening-book/rating math/choreography DATA are
 UNTOUCHED (render + clock glue + UI only). THREE features: (1) BLACK-SIDE
@@ -246,6 +238,31 @@ Prior: v1.2 — choreography variety, castling/en-passant/promotion/stalemate/
 draw set-piece scenes, elaborate checkmate finale
 Prior: v1.1 — battle-end fix, curtain hold, camera views, quit confirm,
 mid-battle resize
+
+V2.13 CHANGES — ORIENTATION-CHANGE RESIZE FIX / iOS SAFARI TIMING (JS only; engine untouched)
+  (verified: node --check js/main.js. Desktop 1280×800 regression-clean.
+  Real-device retest recommended — headless cannot reproduce the iOS viewport
+  timing issue that this fix targets. ENGINE/CHESS/AI/BATTLE UNTOUCHED.)
+
+  ROOT CAUSE: window.addEventListener('resize') fires immediately on iOS Safari
+  when the device is rotated, but window.innerWidth/innerHeight still hold the
+  PRE-rotation values at that moment. App.resize() then sizes the canvas and
+  calls board.layout() with stale dimensions, producing a stretched/squashed board
+  that persists until a subsequent repaint (often never, since no further resize fires).
+
+  FIX (js/main.js App.init()):
+    A shared _deferredResize() closure wraps this.resize() in requestAnimationFrame
+    (falls back to setTimeout 100 ms if rAF is absent). Three new listeners are
+    registered ADDITIVELY alongside the existing window resize:
+      - window.screen.orientation 'change'   (modern Screen Orientation API; guarded)
+      - window 'orientationchange'            (legacy iOS; broad compatibility)
+      - window.visualViewport 'resize'        (covers viewport resize on iOS 13+; guarded)
+    All three fire AFTER the viewport update completes, so the deferred resize reads
+    the settled dimensions. The existing window resize listener is kept unchanged.
+    Desktop browsers ignore 'orientationchange' and visualViewport resize changes only
+    on keyboard/zoom — no observable side effect on desktop.
+
+  Touched: js/main.js only.
 
 V2.12 CHANGES — DRAGGABLE ANGLE DIAL + PORTRAIT TABLE BANNER (UI only; engine untouched)
   (verified: chess 34/34; rating 20/20; ai 19/19; pgn 23/23; node --check on

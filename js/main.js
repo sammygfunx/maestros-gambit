@@ -37,6 +37,24 @@
       this.resize();
       window.addEventListener('resize', () => this.resize());
 
+      // iOS Safari fires the resize event before the viewport has finished updating
+      // on orientation change, so innerWidth/innerHeight still reflect the old size.
+      // Defer by one rAF (or 100 ms fallback) so dimensions have settled.
+      const _deferredResize = () => {
+        if (typeof requestAnimationFrame !== 'undefined') {
+          requestAnimationFrame(() => this.resize());
+        } else {
+          setTimeout(() => this.resize(), 100);
+        }
+      };
+      if (window.screen && window.screen.orientation) {
+        window.screen.orientation.addEventListener('change', _deferredResize);
+      }
+      window.addEventListener('orientationchange', _deferredResize);
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', _deferredResize);
+      }
+
       this.game = new MG.Chess();
       this.board = new MG.BoardView(canvas);
       this.battle = new MG.BattleScene(canvas);
