@@ -406,8 +406,9 @@
     },
 
     /* ---- camera orientation dial (table view) ----
-       An 8-wedge popover that spins the table board to a fixed yaw (45° steps).
-       Built once; the highlighted wedge tracks the live orientation. */
+       An 8-wedge popover draggable by mouse/touch anywhere on screen.
+       Position is persisted in mg_prefs.dialPos across toggles and restarts.
+       First appearance (no saved pos) defaults to above the Angle button. */
     buildOrientDial() {
       const host = $('orient-dial');
       if (!host || host.dataset.built) return;
@@ -428,6 +429,85 @@
       const dot = document.createElement('span');
       dot.className = 'odial-hub';
       host.appendChild(dot);
+      this._wireDialDrag(host);
+    },
+    // Wire pointer-based drag onto the dial (called once; wedge clicks unaffected).
+    _wireDialDrag(host) {
+      let ox, oy, el0x, el0y, moved, suppressNext;
+      host.addEventListener('pointerdown', (e) => {
+        // Dragging from a wedge button would race with its click — use background/hub only.
+        if (e.target.closest('.odial-wedge')) return;
+        ox = e.clientX; oy = e.clientY;
+        const r = host.getBoundingClientRect();
+        el0x = r.left; el0y = r.top;
+        moved = false;
+        host.setPointerCapture(e.pointerId);
+      }, { passive: true });
+      host.addEventListener('pointermove', (e) => {
+        if (!host.hasPointerCapture(e.pointerId)) return;
+        const dx = e.clientX - ox, dy = e.clientY - oy;
+        if (!moved && Math.hypot(dx, dy) < 5) return;
+        moved = true;
+        host.classList.add('dragging');
+        const dw = host.offsetWidth, dh = host.offsetHeight;
+        const x = Math.max(0, Math.min(window.innerWidth - dw, el0x + dx));
+        const y = Math.max(0, Math.min(window.innerHeight - dh, el0y + dy));
+        host.style.left = x + 'px';
+        host.style.top = y + 'px';
+      });
+      const endDrag = (e) => {
+        if (!host.hasPointerCapture(e.pointerId)) return;
+        host.releasePointerCapture(e.pointerId);
+        host.classList.remove('dragging');
+        if (moved) {
+          const r = host.getBoundingClientRect();
+          this.settings.dialPos = { x: Math.round(r.left), y: Math.round(r.top) };
+          this.savePrefs();
+          suppressNext = true;  // block the stale click that fires after a touch-drag
+        }
+        moved = false;
+      };
+      host.addEventListener('pointerup', endDrag);
+      host.addEventListener('pointercancel', endDrag);
+      // Suppress the phantom click that touch fires after a pointer-drag so that
+      // dragging from near a wedge doesn't accidentally rotate the board.
+      host.addEventListener('click', (e) => {
+        if (suppressNext) { suppressNext = false; e.stopPropagation(); }
+      }, true);
+    },
+    // Compute where to place the dial: saved position or a safe default above the button.
+    _dialDefaultPos(host) {
+      const saved = this.settings.dialPos;
+      if (saved) {
+        // clamp in case the viewport shrank since the position was saved
+        const dw = host.offsetWidth || 116, dh = host.offsetHeight || 116;
+        return {
+          x: Math.max(0, Math.min(window.innerWidth - dw, saved.x)),
+          y: Math.max(0, Math.min(window.innerHeight - dh, saved.y)),
+        };
+      }
+      const btn = $('btn-orient');
+      const dw = host.offsetWidth || 116, dh = host.offsetHeight || 116;
+      if (btn) {
+        const br = btn.getBoundingClientRect();
+        if (br.width > 0 || br.height > 0) {
+          // Try above the button, horizontally centered
+          let x = Math.round(br.left + br.width / 2 - dw / 2);
+          let y = Math.round(br.top - dh - 8);
+          if (y < 8) {
+            // Not enough room above — place to the left instead
+            x = Math.round(br.left - dw - 8);
+            y = Math.round(br.top + br.height / 2 - dh / 2);
+          }
+          return {
+            x: Math.max(8, Math.min(window.innerWidth - dw - 8, x)),
+            y: Math.max(8, Math.min(window.innerHeight - dh - 8, y)),
+          };
+        }
+      }
+      // Button hidden or not yet laid out: place in the upper-left playfield quadrant
+      // (clear of the top banner and well away from the right/bottom HUD panel).
+      return { x: 8, y: Math.round(window.innerHeight * 0.15) };
     },
     setOrientDial(o) {
       const host = $('orient-dial');
@@ -443,7 +523,15 @@
     toggleOrientDial() {
       this.buildOrientDial();
       const d = $('orient-dial');
-      if (d) d.classList.toggle('hidden');
+      if (!d) return;
+      const wasHidden = d.classList.contains('hidden');
+      d.classList.toggle('hidden');
+      if (wasHidden) {
+        // Apply position every time we show: use saved pos or compute a safe default.
+        const pos = this._dialDefaultPos(d);
+        d.style.left = pos.x + 'px';
+        d.style.top = pos.y + 'px';
+      }
     },
 
     /* Build the opponent picker: a scrollable list of conductor cards grouped

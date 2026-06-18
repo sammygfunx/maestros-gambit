@@ -1,32 +1,28 @@
 MAESTRO'S GAMBIT — PROJECT STATE
-Last updated: 2026-06-18 (v2.11 — ANGLE DIAL + PORTRAIT POLISH. A targeted
-polish pass from iPhone-13-mini field testing of v2.10. Engine/AI/choreography
-data UNTOUCHED. THREE FIXES: (1) ANGLE DIAL FOR ALL ORIENTABLE VIEWS — the HUD
-"Angle" button now appears in BOTH the Table AND Classic-2D views (was Table-only;
-board.orientable() drives the four showOrientDial calls in main.js — the dial was
-always logically wired for flat, just never shown). (2) PORTRAIT DOCK OVERFLOW FIX
-— the seven-segment clock was overlapping the board's near ranks in portrait Table
-view because the bottom dock (with the Angle button visible = 7 buttons = 3 rows)
-grew to ~280px while bottomReserve was capped at ~195px. board.js layout() now uses
-a larger portrait floor (max(260, H*0.34)) and refines from the live offsetHeight of
-#hud-side when the game screen is visible — guaranteeing the board draws above the
-dock regardless of how many buttons are showing. (3) TIME-CONTROL "CUSTOM" BUTTON
-— the 6-button TC segment overflowed horizontally on 375px phones (6 × 62px ≈ 372px
-> 375px viewport minus padding; .seg has overflow:hidden so "Custom" was cropped to
-"Cus"). A narrow-viewport CSS override now zeroes the TC button min-width so flex
-distributes them equally and all labels fit. Verified: chess 34/34, rating 20/20,
-ai 19/19, pgn 23/23; node --check on board/main. Touched: js/main.js, js/board.js,
-css/style.css. See V2.11 CHANGES below.)
-OUTSTANDING PHONE ISSUES (deferred to next thread — need real-device iteration):
-  (A) DRAGGABLE ANGLE DIAL: currently the dial pops over the button stack and can
-      overlap other controls; requested: spawn in a free area and let the user drag
-      it by touch/mouse to any position (preserving that position across toggles).
-      Requires touch + mouse drag implementation + persistent position storage.
-  (B) PORTRAIT TABLE VIEW — BANNER GAP: the "X to move" banner lives in #hud-top
-      (position:absolute, top:0) while the Table view's near ranks render near the
-      vertical centre of the canvas due to perspective foreshortening — producing a
-      300–400px gap between the banner and the board edge. True fix needs JS to
-      dynamically re-anchor the banner just above where the board actually draws.
+Last updated: 2026-06-18 (v2.12 — DRAGGABLE ANGLE DIAL + PORTRAIT TABLE BANNER.
+Two UI-only fixes for the deferred phone issues from v2.11. Engine/AI/choreography
+data UNTOUCHED. (A) DRAGGABLE ANGLE DIAL: #orient-dial changed from position:absolute
+inside #hud-side to position:fixed (z-index 15, above the HUD but below modals/banter
+toast). Pointer/touch drag is wired in buildOrientDial() via _wireDialDrag() — only
+starts a drag from the hub/background (not wedge buttons), uses setPointerCapture for
+smooth tracking, saves the dropped position to mg_prefs.settings.dialPos, and clamps
+to the viewport on restore. On first show (no saved position), _dialDefaultPos()
+places the dial above the Angle button (or to the left if not enough room), using the
+live getBoundingClientRect of #btn-orient; falls back to upper-left playfield quadrant
+if the button is hidden. Wedge click behaviour is fully preserved; a suppressNext flag
+blocks the phantom click that touch fires after a drag. (B) PORTRAIT TABLE BANNER
+GAP: App.updateBannerPos() checks portrait mode (innerHeight >= innerWidth) + view
+=== 'table' and re-anchors #hud-turn-banner just above the board's topmost rendered
+y-coordinate: top = board.tp.cy + board.tp.V * (D0/(D0+4+3.5)) - 8, with left:0
+right:0 text-align:center set via inline cssText; restores blank cssText for all
+other views/orientations. Called from resize(), cycleView(), startGame(), and
+loadPgnGame(). Dev hook: ?shot=board&view=table now also calls showOrientDial() so
+the Angle button is visible when &dial=1 fires, enabling proper position computation.
+Verified: chess 34/34, rating 20/20, ai 19/19, pgn 23/23; node --check on main/ui.
+Headless stills at 390x844: banner sits at the table board's far-rank edge (no 300px
+gap); dial spawns above the Angle button. Touched: js/main.js, js/ui.js,
+css/style.css, README.md. See V2.12 CHANGES below.)
+OUTSTANDING PHONE ISSUES (deferred — need real-device iteration):
   (C) BOARD STRETCH ON ROTATION CHANGE: switching portrait↔landscape mid-game
       distorts the 2D view. Likely a viewport resize timing issue on iOS Safari;
       listening to visualViewport resize or screen.orientation.change may help.
@@ -250,6 +246,58 @@ Prior: v1.2 — choreography variety, castling/en-passant/promotion/stalemate/
 draw set-piece scenes, elaborate checkmate finale
 Prior: v1.1 — battle-end fix, curtain hold, camera views, quit confirm,
 mid-battle resize
+
+V2.12 CHANGES — DRAGGABLE ANGLE DIAL + PORTRAIT TABLE BANNER (UI only; engine untouched)
+  (verified: chess 34/34; rating 20/20; ai 19/19; pgn 23/23; node --check on
+  js/main.js, js/ui.js. Pure DOM/CSS/positioning pass — ENGINE/CHESS/AI/BATTLE
+  UNTOUCHED.)
+
+  (A) DRAGGABLE ANGLE DIAL (js/ui.js + css/style.css):
+      #orient-dial was position:absolute inside #hud-side (right:8px, bottom:62px),
+      which anchored it to the HUD panel and could overlap buttons on small screens.
+      Now position:fixed (z-index 15 — above #hud at 10, below banter-toast/modals
+      at 30); pointer-events:auto; cursor:grab; touch-action:none; user-select:none.
+      CSS z-index 6 removed.
+
+      NEW in ui.js (all inside the orient-dial section):
+        _wireDialDrag(host): registered once in buildOrientDial() after the wedges
+          are appended. Uses pointerdown / pointermove / pointerup + setPointerCapture
+          for unified mouse+touch drag. Guards: only starts a drag from non-wedge
+          targets (pressing a wedge still fires its click normally); threshold of 5px
+          before a move is counted as a drag; clamps to viewport; on drop saves
+          {x,y} to this.settings.dialPos + savePrefs(). A suppressNext flag blocks
+          the phantom click that touch emits after a pointer-drag.
+        _dialDefaultPos(host): called in toggleOrientDial() every time the dial is
+          shown. If settings.dialPos is set, clamps it to current viewport and uses
+          it. Otherwise reads #btn-orient.getBoundingClientRect(): places dial above
+          the button (centered), or to the left if there's not enough room above.
+          Falls back to (x:8, y:15% of screen height) when the button has zero
+          bounding rect (hidden).
+        toggleOrientDial(): now applies left/top via inline style whenever showing
+          the dial (was just toggling the hidden class).
+
+      Dev hook (js/main.js): ?shot=board&view=<v> now also calls showOrientDial()
+        after setView() so the Angle button is visible when &dial=1 fires (ensuring
+        _dialDefaultPos can read its correct position). updateBannerPos() also called.
+
+  (B) PORTRAIT TABLE BANNER GAP (js/main.js):
+      The "X to move" turn banner (#hud-turn-banner) lived at the top of #hud-top
+      (position:absolute, top:0, left:0, right:0). In portrait mode the Table view's
+      far rank appears at ~55% down the canvas due to perspective foreshortening
+      — a 300–400px empty gap between the banner and the top of the board.
+
+      NEW App.updateBannerPos():
+        Checks portrait (innerHeight >= innerWidth) && view === 'table' && tp exists.
+        Computes topY = tp.cy + tp.V * (tp.D0 / (tp.D0 + 4 + 3.5)) — the screen y
+        of the far-rank piece centres at any orient (the formula uses the minimum-rr
+        value at orient 0 / orient 4; at other angles the formula is slightly
+        conservative, placing the banner just above the board top). Sets
+        banner.style.cssText = 'position:absolute; top:(topY-8)px; left:0; right:0;
+        text-align:center;' — detaching the banner from the flex row so it floats
+        over the playfield at the right height. For all other views / orientations
+        cssText is cleared, restoring the normal flex placement.
+      Called from: resize() (after board.layout()); cycleView(); startGame();
+        loadPgnGame().
 
 V2.11 CHANGES — ANGLE DIAL + PORTRAIT POLISH (CSS + JS only; engine untouched)
   (verified: chess 34/34; rating 20/20; ai 19/19; pgn 23/23; node --check on

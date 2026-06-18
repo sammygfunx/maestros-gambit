@@ -633,17 +633,24 @@ html, body {
 .btn .blabel { vertical-align: baseline; }
 
 /* ---------- camera-angle dial (table view) ----------
-   An 8-wedge popover floated over the playfield, anchored to the HUD button
-   stack. Each wedge sits around a circle (placed by an inline transform from
-   ui.js); the highlighted one is the live view angle. */
+   An 8-wedge popover draggable anywhere on screen (position set by ui.js on
+   first show and persisted in mg_prefs). position:fixed so it escapes the HUD
+   hierarchy and can be dragged freely; z-index 15 keeps it above the HUD (10)
+   but below banter-toast and modals (30). */
 #orient-dial {
-  position: absolute; right: 8px; bottom: 62px;
+  position: fixed;
   width: 116px; height: 116px;
   background: rgba(12,6,18,.94);
   border: 1px solid var(--gold-dim, #a87f33); border-radius: 50%;
   box-shadow: 0 6px 20px -6px #000, inset 0 0 18px -8px var(--gold-bright, #ffd98a);
-  z-index: 6;
+  z-index: 15;
+  cursor: grab;
+  touch-action: none;
+  pointer-events: auto;
+  user-select: none;
+  -webkit-user-select: none;
 }
+#orient-dial.dragging { cursor: grabbing; }
 .odial-wedge {
   position: absolute; left: 50%; top: 50%; width: 26px; height: 26px;
   margin: -13px 0 0 -13px;

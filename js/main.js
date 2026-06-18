@@ -176,7 +176,7 @@
       if (shot === 'board') {
         this.startGame({ mode: '2p', diff: 1, battles: 'off', side: 'w' });
         const v = q.get('view');
-        if (v) { this.board.setView(v); MG.UI.setViewBtn(this.board.view); }
+        if (v) { this.board.setView(v); MG.UI.setViewBtn(this.board.view); MG.UI.showOrientDial(this.board.orientable()); this.updateBannerPos(); }
         // &orient=N (0..7) spins the table/flat board to a fixed yaw for stills
         const ori = q.get('orient');
         if (ori != null) { this.setOrient(+ori); MG.UI.showOrientDial(this.board.orientable()); }
@@ -314,6 +314,25 @@
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       if (this.board) this.board.layout();
       if (this.battle) this.battle.relayout();
+      this.updateBannerPos();
+    },
+
+    // In portrait+table view the far rank appears at ~50-60% of the screen height
+    // due to perspective foreshortening, leaving a large gap between the fixed
+    // "X to move" banner (stuck at the top) and the board's top edge. This reanchors
+    // the banner just above where the board actually draws, restoring normal flow for
+    // all other views/orientations.
+    updateBannerPos() {
+      const banner = document.getElementById('hud-turn-banner');
+      if (!banner || !this.board) return;
+      const portrait = window.innerHeight >= window.innerWidth;
+      if (portrait && this.board.view === 'table' && this.board.tp) {
+        const { D0, V, cy } = this.board.tp;
+        const topY = cy + V * (D0 / (D0 + 4 + 3.5));
+        banner.style.cssText = 'position:absolute;top:' + Math.round(topY - 8) + 'px;left:0;right:0;text-align:center;';
+      } else {
+        banner.style.cssText = '';
+      }
     },
 
     cycleView() {
@@ -325,6 +344,7 @@
       MG.UI.setViewBtn(next);
       // the orient dial only makes sense for the table/flat views
       MG.UI.showOrientDial(this.board.orientable());
+      this.updateBannerPos();
     },
 
     // jump the table/flat board to one of the 8 fixed yaw angles (orient dial)
@@ -508,6 +528,7 @@
       // playing Black starts from Black's perspective. The orient dial overrides.
       this.setOrient(session.humanColor === 'b' ? 4 : 0);
       MG.UI.showOrientDial(this.board.orientable());
+      this.updateBannerPos();
       this.resetClock();
       MG.UI.setClockBtn(MG.UI.settings.clockShown);
       MG.UI.updateMoveList([]);
@@ -677,6 +698,7 @@
       MG.UI.setViewBtn(this.board.view);
       this.setOrient(0);
       MG.UI.showOrientDial(this.board.orientable());
+      this.updateBannerPos();
       this.resetClock();
       MG.UI.setClockBtn(MG.UI.settings.clockShown);
       MG.UI.updateMoveList(this.game.sanHistory);

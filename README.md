@@ -92,9 +92,11 @@ The roadmap for getting it sold is `next_steps_2.txt`.
   pieces for when you just want to read the position clearly (it honours the
   colour-blind-safe Board Theme too). The board faces **your** side by default,
   so playing Black puts Black at the bottom in the table and Classic 2D views.
-  In the table view a small **angle dial** (HUD "Angle" button) spins the stage
-  to any of **eight fixed viewpoints** (45° steps) — read the position from
-  whichever corner you like.
+  In the table and Classic 2D views a small **angle dial** (HUD "Angle" button)
+  spins the stage to any of **eight fixed viewpoints** (45° steps). The dial is
+  **draggable** — press and hold it anywhere on the dial background (mouse or touch)
+  and drop it wherever it's most convenient; it stays put across opens and game
+  restarts (position persisted in preferences).
 - Promotion ceremony, captured-musician trays, algebraic move list, undo, resign.
 - **Chess clocks** — per-player LED seven-segment timers (Ivory in gold, Ebony
   in violet) that only run for the side to move and freeze during battle scenes.
